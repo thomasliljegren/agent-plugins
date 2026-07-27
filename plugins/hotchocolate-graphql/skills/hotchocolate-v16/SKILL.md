@@ -4,11 +4,15 @@ description: >
   Architecture patterns, code conventions, and structural decisions for building
   HotChocolate v16 GraphQL servers. Use this skill whenever working on anything
   in the GraphQL layer: adding a new query, mutation, subscription, object type,
-  DataLoader, type extension, input type, or error type; wiring up Fusion v2
-  subgraph lookups; setting up mutation conventions; or deciding where a new file
-  belongs. Also use when the user asks about the node pattern, cross-feature type
-  extensions, mapping strategy, or Fusion v2 cross-subgraph entity extension.
-  When in doubt about any HC v16 or Fusion v2 pattern, consult this skill first.
+  DataLoader, batch resolver, interface, union, type extension, input type, or
+  error type; pagination and projection (QueryContext/.With()); wiring up Fusion
+  subgraph lookups; setting up mutation conventions; production hardening (cost
+  analysis, persisted operations, execution depth); authorization; schema CI and
+  breaking-change detection; or deciding where a new file belongs. Also use when
+  the user asks about the node pattern, cross-feature type extensions, mapping
+  strategy, GraphQL schema design principles (demand-oriented design, Relay
+  conventions, error-union patterns, fragments), or Fusion cross-subgraph entity
+  extension. When in doubt about any HC v16 or Fusion pattern, consult this skill first.
 ---
 
 # HotChocolate v16 — Architecture Reference
@@ -291,10 +295,8 @@ public static class BookDataLoaders
     public static async Task<IReadOnlyDictionary<Guid, Book>> BookByIdAsync(
         IReadOnlyList<Guid> ids,
         IAppReadContext db,
-        ISelectorBuilder selector,
         CancellationToken ct)
         => await db.Books.Where(b => ids.Contains(b.Id))
-            .Select(b => b.Id, selector)
             .ToDictionaryAsync(b => b.Id, ct);
 
     [DataLoader]
@@ -308,12 +310,149 @@ public static class BookDataLoaders
 }
 ```
 
-Use `ISelectorBuilder selector` + `.Select(b => b.Id, selector)` to push the client's field selection into SQL.
+---
+
+## Pagination & projection
+
+`.AddFiltering().AddSorting()` in Program.cs (already shown above) is a **prerequisite** for `QueryContext<T>`, not an unrelated feature.
+
+Current v16 pattern is `QueryContext<T>` + `.With()` — **`ISelectorBuilder` is the pattern this replaced; don't use it in new code.**
+
+```csharp
+[UseFiltering, UseSorting]
+public static async Task<Page<Product>> GetProductsAsync(
+    PagingArguments pagingArgs, QueryContext<Product> query,
+    CatalogContext db, CancellationToken ct)
+    => await db.Products.With(query).ToPageAsync(pagingArgs, ct);
+```
+
+`QueryContext<T>` is derived from the GraphQL selection set. `.With(query)` applies projection, filter, and sort to the `IQueryable` **in the correct order automatically** — this fixes the historical "wrong order breaks EF translation" gotcha. `.ToPageAsync(pagingArgs, ct)` materializes.
+
+**DataLoader-batched pagination**: `.ToBatchPageAsync(keySelector, pagingArgs, ct)`, e.g. for `AuthorBookExtensions.GetBooks` paginated per-author with batching.
+
+**Global config**:
+```csharp
+builder.Services.AddGraphQL()
+    .ModifyPagingOptions(o =>
+    {
+        o.DefaultPageSize = 25;
+        o.MaxPageSize = 100;
+        o.IncludeTotalCount = true;
+    });
+```
+
+Offset paging (skip/take, `XCollectionSegment`) is `[UseOffsetPaging]` — use only when a client genuinely needs page numbers; cursor paging (`[UsePaging]`) is the default and composes with DataLoader batching, offset paging does not.
+
+`[UseProjection]` is the pattern you **migrate from** — replace it with `QueryContext<T>` + `.With()` in new and touched code.
 
 ---
 
-## Fusion v2 (cross-subgraph extension)
+## Interfaces & unions
 
-See `references/fusion-v2.md` for the full reference.
+Marker-interface pattern for both — type resolution is inferred from the runtime CLR type implementing the interface, no custom `ResolveType` delegate needed.
 
-**Short version**: the exact same `[ObjectType<T>]` partial pattern works across subgraph assemblies. Each subgraph declares its own `[ObjectType<Author>]` with whatever fields it owns and a `[Lookup]` resolver (marked `[Internal]` on non-owning subgraphs). Composition is CLI-time (`fusion compose`), not runtime. No `@key`, no `[ReferenceResolver]`, no representations protocol.
+```csharp
+[InterfaceType("Message")]
+public interface IMessage
+{
+    User Author { get; set; }
+    DateTime CreatedAt { get; set; }
+}
+
+[UnionType("PostContent")]
+public interface IPostContent { }   // no members — pure marker
+```
+
+The `[Error<T>]` mutation pattern (below) generalizes to **query-level** result unions via this same mechanism — e.g. `IUserByEmailResult` implemented by both `User` and `UserNotFoundError`. See `references/schema-design.md` for when to reach for an interface vs a union.
+
+---
+
+## Modularity across assemblies
+
+There's no `[Module]` attribute or assembly-scanning convention. The actual scale lever: `[QueryType]` / `[MutationType]` / `[ObjectType<T>]` partial classes merge **across assemblies**, not just across files in one project — split by assembly per bounded context for team-ownership boundaries. This is the same mechanism Fusion subgraphs use to extend foreign types (`references/fusion.md`), just within one process instead of across a gateway.
+
+`ITypeModule` is a separate, unrelated mechanism for *dynamic* runtime-driven schemas (implement `CreateTypesAsync`, fire `TypesChanged` for hot-reload) — reach for it only when the schema itself is driven by external metadata, not as a general modularity tool.
+
+---
+
+## `[BatchResolver]` vs `[DataLoader]`
+
+`[BatchResolver]` has a fuller contract than a plain field resolver: the parent parameter must be `[Parent] List<T>`, and the return type must be a list with the **same count and order** as the input — this is a contract, not compiler-enforced. Per-item error handling uses `ResolverResult.Ok(...)` / `.Fail(...)` without failing the whole batch.
+
+Distinguish by intent: **batch resolver** = field-scoped, non-cacheable, one-off; **DataLoader** = cross-request/cross-field reusable caching. Default to DataLoader; reach for `[BatchResolver]` only when the batching is genuinely local to one field and caching would be wasted effort.
+
+---
+
+## Subscriptions
+
+`[SubscriptionType]` follows the same partial-class merge story as queries and mutations; `[Subscribe]` + `[EventMessage]` on the parameter.
+
+The **backplane is a real production decision**, not a default to leave alone: the in-memory default is single-instance only — any horizontally scaled deployment needs a shared backplane (Redis, NATS, RabbitMQ, or Postgres), all configured via `SubscriptionOptions` (`TopicBufferCapacity`, overflow mode).
+
+---
+
+## Production hardening
+
+HotChocolate is **secure-by-default** — left at framework defaults, `AddGraphQL()` already enables cost analysis, disables introspection outside `Development`, and enforces a max field-cycle depth in production. Don't re-add these; tune them explicitly where the defaults don't fit:
+
+```csharp
+builder.Services.AddGraphQL()
+    .AddMaxExecutionDepthRule(15)
+    .ModifyCostOptions(o =>
+    {
+        o.MaxFieldCost = 1_000_000;
+        o.MaxTypeCost = 1_000_000;
+        o.EnforceCostLimits = true;
+    })
+    .ModifyRequestOptions(o => o.ExecutionTimeout = TimeSpan.FromSeconds(30));
+```
+
+**Persisted operations** are the recommended hardening for private/first-party APIs — not just a perf tweak, they eliminate parser/validator exposure entirely:
+
+```csharp
+app.MapGraphQL().UsePersistedOperationPipeline();
+// and: OnlyAllowPersistedDocuments = true
+```
+
+---
+
+## Authorization
+
+`[Authorize]` must come from `HotChocolate.Authorization` — **not** the ASP.NET Core one. The ASP.NET Core attribute does not integrate with the GraphQL execution pipeline (field-level enforcement, error shaping) and will silently no-op in ways that are easy to miss in review.
+
+`Roles = [...]` is any-match; `Policy = "..."` requires all stacked policies to pass. Type-level `[Authorize]` cascades to fields; field-level `[Authorize]` overrides it.
+
+---
+
+## Schema export, CI, and breaking-change detection
+
+`dotnet run -- schema export` for ad-hoc export; `.ExportSchemaOnStartup(path)` for CI/registry integration at boot.
+
+The officially sanctioned breaking-change detector is **snapshot-testing the SDL**, not a bespoke diff script:
+
+```csharp
+[Fact]
+public Task Schema_has_not_changed_unexpectedly()
+{
+    var executor = /* build request executor */;
+    return executor.Schema.MatchSnapshot();
+}
+```
+
+Wire this into CI as the standard schema-diff gate.
+
+**v16 breaking change**: `@semanticNonNull` is no longer auto-applied at the main endpoint. Opt in via `dotnet run -- schema export --semantic-non-null`, or serve a parallel endpoint with `app.MapGraphQLSemanticNonNullSchema()`.
+
+---
+
+## Fusion (cross-subgraph extension)
+
+See `references/fusion.md` for the full reference.
+
+**Short version**: the exact same `[ObjectType<T>]` partial pattern works across subgraph assemblies. Each subgraph declares its own `[ObjectType<Author>]` with whatever fields it owns and a `[Lookup]` resolver (marked `[Internal]` on non-owning subgraphs). Composition is CLI-time (`nitro fusion compose`), not runtime. No `@key`, no `[ReferenceResolver]`, no representations protocol.
+
+---
+
+## Schema design principles
+
+See `references/schema-design.md` for library-agnostic schema architecture — demand-oriented vs resource-oriented design, Relay conventions, nullability/evolution, error-handling schools, fragments and colocation, layered performance defenses, and modularity/governance at scale — each mapped to the concrete HC v16 mechanism above.

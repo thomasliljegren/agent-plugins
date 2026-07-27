@@ -6,13 +6,13 @@
   },
   "metadata": {
     "description": "Cross-agent plugin collection: portable Agent Skills (SKILL.md) with Claude Code plugin wrappers.",
-    "version": "0.1.0"
+    "version": "0.2.0"
   },
   "plugins": [
     {
       "name": "hotchocolate-graphql",
       "source": "./plugins/hotchocolate-graphql",
-      "description": "Architecture patterns and conventions for HotChocolate v16 GraphQL servers and Fusion v2 subgraphs.",
+      "description": "Architecture patterns and conventions for HotChocolate v16 GraphQL servers and Fusion subgraphs.",
       "category": "development",
       "keywords": ["graphql", "hotchocolate", "dotnet", "fusion"]
     }
