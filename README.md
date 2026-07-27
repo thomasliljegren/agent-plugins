@@ -20,7 +20,7 @@ Skills are the portable core — any standard-compliant agent can use them uncha
 ### Claude Code (full plugin: skills + commands + agents + MCP)
 
 ```
-/plugin marketplace add <github-user>/agent-plugins
+/plugin marketplace add thomasliljegren/agent-plugins
 /plugin install hotchocolate-graphql@agent-plugins
 ```
 
@@ -29,7 +29,7 @@ Or from a local checkout: `/plugin marketplace add /path/to/agent-plugins`
 ### Any other agent (skills only, via skills.sh)
 
 ```
-npx skills add github:<github-user>/agent-plugins
+npx skills add github:thomasliljegren/agent-plugins
 ```
 
 This detects every `SKILL.md` in the repo and installs it into each agent's skills directory (Codex, Copilot, Cursor, OpenCode, Gemini CLI, …).

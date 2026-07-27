@@ -7,7 +7,7 @@ The portable unit is a skill directory containing `SKILL.md` (plus optional `ref
 Full plugin support (skills, slash commands, subagents, hooks, MCP):
 
 ```
-/plugin marketplace add <github-user>/agent-plugins
+/plugin marketplace add thomasliljegren/agent-plugins
 /plugin install hotchocolate-graphql@agent-plugins
 ```
 
@@ -16,7 +16,7 @@ Skills only, without the plugin system: copy the skill folder to `~/.claude/skil
 ## skills.sh (works for most agents at once)
 
 ```
-npx skills add github:<github-user>/agent-plugins
+npx skills add github:thomasliljegren/agent-plugins
 ```
 
 Prompts you to pick which installed agents to target and places the skills accordingly.
