@@ -1,0 +1,20 @@
+{
+  "name": "agent-plugins",
+  "owner": {
+    "name": "Thomas Liljegren",
+    "email": "thliljegren@gmail.com"
+  },
+  "metadata": {
+    "description": "Cross-agent plugin collection: portable Agent Skills (SKILL.md) with Claude Code plugin wrappers.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "hotchocolate-graphql",
+      "source": "./plugins/hotchocolate-graphql",
+      "description": "Architecture patterns and conventions for HotChocolate v16 GraphQL servers and Fusion v2 subgraphs.",
+      "category": "development",
+      "keywords": ["graphql", "hotchocolate", "dotnet", "fusion"]
+    }
+  ]
+}
