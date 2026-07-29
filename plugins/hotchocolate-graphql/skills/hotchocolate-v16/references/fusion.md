@@ -1,5 +1,8 @@
 # Fusion — Cross-Subgraph Extension Reference (v16)
 
+> **Deployment, CI/CD, Aspire, `schema-settings.json`, and "must I redeploy the gateway
+> after a subgraph change?" are in `fusion-deployment.md`.** This file covers modelling.
+
 ## Model overview
 
 HotChocolate Fusion is **not Apollo Federation in C# paint**. Key differences:
@@ -185,47 +188,64 @@ For Relay global IDs: define `[ID("Author")] Guid id` in the owning subgraph and
 The gateway artifact and CLI are `.far` / `nitro`, not the older `.fgp` / standalone `fusion` binary.
 
 ```bash
-# Install once
-dotnet tool install -g HotChocolate.Nitro.CommandLine.Tool
+# Install once (any one of these)
+npm install -g @chillicream/nitro
+brew install ChilliCream/tools/nitro-cli
+dotnet tool install --global ChilliCream.Nitro.CommandLine
 
 # Per subgraph in CI
-cd src/Authors.Api
-dotnet run -- schema export --output schema.graphql
-
-cd src/Books.Api
-dotnet run -- schema export --output schema.graphql
+dotnet run --project src/Authors.Api -- schema export --output schema.graphql
+dotnet run --project src/Books.Api   -- schema export --output schema.graphql
 
 # Compose
-nitro fusion compose -o gateway.far -s src/Authors.Api/schema.graphql -s src/Books.Api/schema.graphql
+nitro fusion compose \
+  --source-schema-file src/Authors.Api/schema.graphqls \
+  --source-schema-file src/Books.Api/schema.graphqls \
+  --archive gateway.far
 ```
 
-`nitro` is the umbrella CLI for the whole Nitro product (hosted schema registry, observability, governance); `fusion` is a command group inside it: `nitro fusion compose|validate|publish|download|run|upload|migrate`. `nitro fusion publish` supports three input modes (pre-composed archive / local source schemas / uploaded `name@version` refs) plus a begin/start/validate/commit/cancel workflow for gated, blue-green deploys.
+Each local schema file needs a companion `-settings.json` next to it (`schema.graphqls` →
+`schema-settings.json`); both are produced by `schema export`. See `fusion-deployment.md`.
+
+`nitro` is the umbrella CLI for the whole Nitro product (hosted schema registry, observability, governance); `fusion` is a command group inside it: `nitro fusion compose|validate|publish|download|run|upload|migrate|settings`. `nitro fusion publish` supports three input modes (pre-composed archive / local source schemas / uploaded `name@version` refs) plus a begin/start/validate/commit/cancel workflow for gated, blue-green deploys.
 
 **Gateway Program.cs**:
 ```csharp
-builder.Services
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddHttpClient("fusion");
+
+builder                                    // on the WebApplicationBuilder, not .Services
     .AddGraphQLGateway()
     .AddFileSystemConfiguration("./gateway.far");
 
+var app = builder.Build();
 app.MapGraphQL();
 app.Run();
 ```
 
+⚠️ `builder.Services.AddGraphQLGateway()` is a *different* overload that registers the execution
+core **without an HTTP server**. For a hosted gateway use `builder.AddGraphQLGateway()` or
+`builder.Services.AddGraphQLGatewayServer()`.
+
 The gateway is a fully decoupled, open ASP.NET Core library — standard `IHttpClientFactory`, OpenTelemetry, and ASP.NET Core auth, not Fusion-specific mechanisms. (Rationale: the earlier gateway was built on top of HotChocolate's own type system and broke when core shipped internal fixes; rather than following competitors to a Rust/Go gateway, ChilliCream decoupled it into a plain library.)
 
-**With Aspire** (recommended for dev loop) — three calls, not one:
+**With Aspire** (dev loop only — see `fusion-deployment.md` for settings and partial graphs):
 
 ```csharp
 var builder = DistributedApplication.CreateBuilder(args);
+
+builder.AddGraphQLOrchestrator();          // once, first
+
 var authors = builder.AddProject<Projects.MyApp_Authors_Api>("authors")
     .WithGraphQLSchemaEndpoint();
 var books   = builder.AddProject<Projects.MyApp_Books_Api>("books")
     .WithGraphQLSchemaEndpoint();
 
-var gateway = builder.AddProject<Projects.MyApp_Gateway>("gateway")
-    .WithGraphQLSchemaComposition(authors, books);
-
-builder.AddGraphQLOrchestrator();
+builder.AddProject<Projects.MyApp_Gateway>("gateway")
+    .WithGraphQLSchemaComposition()        // takes no subgraph arguments
+    .WithReference(authors)                // subgraphs are discovered via WithReference
+    .WithReference(books);
 
 builder.Build().Run();
 ```
@@ -234,15 +254,19 @@ The orchestrator fetches each subgraph's live schema over HTTP and composes at A
 
 Composition is **always build/CI-time**, not runtime request-time. Type conflicts and missing lookups fail composition before reaching production. Local hot-reload during plain `dotnet run` isn't quite real file-watch: with Aspire, recomposition happens on AppHost build; for the non-Aspire case use `nitro fusion compose --watch`.
 
-Composition runs an **8-phase pipeline** (Parse → Preprocess → Enrich → Validate Source Schemas → Pre-Merge Validation → Merge → Post-Merge Validation → Validate Satisfiability) with stable diagnostic codes worth knowing when composition fails: `OUTPUT_FIELD_TYPES_NOT_MERGEABLE`, `INVALID_FIELD_SHARING`, `UNSATISFIABLE_QUERY_PATH`, among others.
+Composition runs an **8-phase pipeline** (Parse → Preprocess → Enrich → Validate Source Schemas → Pre-Merge Validation → Merge → Post-Merge Validation → Validate Satisfiability) with stable diagnostic codes worth knowing when composition fails: `OUTPUT_FIELD_TYPES_NOT_MERGEABLE`, `INVALID_FIELD_SHARING`, `UNSATISFIABLE_QUERY_PATH`, among others. Full triage table in `fusion-deployment.md`.
 
 ---
 
 ## Nitro Cloud (hosted schema registry)
 
-Subgraphs upload SDL tagged by commit SHA. `nitro fusion publish` composes server-side against a target stage and hot-swaps the running gateway with no restart (gateway side: `AddNitro().AddDefaults()`). `nitro fusion validate` at PR time composes the proposed schema against the currently-published siblings — this is the CI breaking-change gate for a federated graph, analogous to the single-service `MatchSnapshot()` gate in SKILL.md. Native GitHub Actions exist for both steps.
+Subgraphs upload SDL tagged by commit SHA. `nitro fusion publish` composes server-side against a target stage and hot-swaps the running gateway with no restart (gateway side: `AddNitro().AddDefaults()`). `nitro fusion validate` at PR time composes the proposed schema against the currently-published siblings — this is the CI breaking-change gate for a federated graph, analogous to the single-service `MatchSnapshot()` gate in SKILL.md. Native GitHub Actions exist for all three steps (`nitro-fusion-upload`, `nitro-fusion-publish`, `nitro-fusion-validate`).
 
-Self-hosting the registry (skipping Nitro) is documented but you own write-serialization, validation, and atomic rollout yourself — not a drop-in replacement.
+**Ordering matters**: deploy the subgraph app first, `publish` second — publishing first points the gateway at a URL that isn't live yet.
+
+Self-hosting the registry (skipping Nitro) is documented but you own write-serialization, validation, persisted-operation safety, and atomic rollout yourself — not a drop-in replacement.
+
+Full pipelines, YAML, and the redeploy decision table: `fusion-deployment.md`.
 
 ---
 
@@ -252,6 +276,8 @@ Self-hosting the registry (skipping Nitro) is documented but you own write-seria
 - `@resolve`, `@delegate`, or `@extends` directives in `.ext.graphql` files — HC v13 schema-stitching legacy
 - `@key`/`_entities`/`__resolveReference` — Apollo Federation patterns; don't translate literally (see the migration concept map above instead)
 - `.fgp` files, `AddFusionGatewayServer()`, standalone `fusion compose` (no `nitro` prefix), or `SubgraphConfigurationFile` — pre-v16 gateway hosting, superseded by `.far` / `AddGraphQLGateway()` / `nitro fusion compose`
+- `subgraph-config.json` — v15; migrate with `nitro fusion migrate subgraph-config` to `schema-settings.json`
+- `dotnet tool install -g HotChocolate.Nitro.CommandLine.Tool` — wrong package id (see CLI install above)
 
 ---
 

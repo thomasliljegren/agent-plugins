@@ -1,18 +1,19 @@
 ---
 name: hotchocolate-v16
 description: >
-  Architecture patterns, code conventions, and structural decisions for building
-  HotChocolate v16 GraphQL servers. Use this skill whenever working on anything
-  in the GraphQL layer: adding a new query, mutation, subscription, object type,
-  DataLoader, batch resolver, interface, union, type extension, input type, or
-  error type; pagination and projection (QueryContext/.With()); wiring up Fusion
-  subgraph lookups; setting up mutation conventions; production hardening (cost
-  analysis, persisted operations, execution depth); authorization; schema CI and
-  breaking-change detection; or deciding where a new file belongs. Also use when
-  the user asks about the node pattern, cross-feature type extensions, mapping
-  strategy, GraphQL schema design principles (demand-oriented design, Relay
-  conventions, error-union patterns, fragments), or Fusion cross-subgraph entity
-  extension. When in doubt about any HC v16 or Fusion pattern, consult this skill first.
+  Architecture patterns, code conventions, and structural decisions for
+  HotChocolate v16 GraphQL servers and Fusion distributed graphs. Use whenever
+  working in the GraphQL layer: adding a query, mutation, subscription, object
+  type, DataLoader, batch resolver, interface, union, type extension, input type,
+  or error type; pagination/projection (QueryContext/.With()); mutation
+  conventions; production hardening (cost analysis, persisted operations,
+  execution depth); authorization; schema CI and breaking-change detection; or
+  deciding where a new file belongs. Also for the node pattern, cross-feature type
+  extensions, mapping strategy, schema design principles, Fusion subgraph lookups
+  and cross-subgraph entity extension, and Fusion gateway deployment: composition,
+  nitro fusion CLI, Nitro registry, CI/CD, .NET Aspire, schema-settings.json, .far
+  archives, composition errors, and whether the gateway must be redeployed after a
+  subgraph change.
 ---
 
 # HotChocolate v16 — Architecture Reference
@@ -447,7 +448,9 @@ Wire this into CI as the standard schema-diff gate.
 
 ## Fusion (cross-subgraph extension)
 
-See `references/fusion.md` for the full reference.
+See `references/fusion.md` for the full reference, and
+`references/fusion-deployment.md` for deployment, CI/CD, Aspire, and gateway
+redeploy semantics.
 
 **Short version**: the exact same `[ObjectType<T>]` partial pattern works across subgraph assemblies. Each subgraph declares its own `[ObjectType<Author>]` with whatever fields it owns and a `[Lookup]` resolver (marked `[Internal]` on non-owning subgraphs). Composition is CLI-time (`nitro fusion compose`), not runtime. No `@key`, no `[ReferenceResolver]`, no representations protocol.
 
