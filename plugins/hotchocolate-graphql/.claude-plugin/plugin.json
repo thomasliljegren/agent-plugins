@@ -1,7 +1,7 @@
 {
   "name": "hotchocolate-graphql",
-  "description": "Architecture patterns and conventions for HotChocolate v16 GraphQL servers and Fusion subgraphs.",
-  "version": "0.2.0",
+  "description": "Architecture patterns and conventions for HotChocolate v16 GraphQL servers, plus Fusion subgraphs, composition, and gateway deployment.",
+  "version": "0.3.0",
   "author": {
     "name": "Thomas Liljegren",
     "email": "thliljegren@gmail.com"
