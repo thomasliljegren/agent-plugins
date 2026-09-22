@@ -1,0 +1,10 @@
+{
+  "name": "model-policy",
+  "description": "Keeps subagents on the cheapest model that fits: fills a missing model by agent type, requires a written reason for a top-tier subagent, and logs every dispatch so the effect can be measured.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Thomas Liljegren",
+    "email": "thliljegren@gmail.com"
+  },
+  "keywords": ["subagents", "model", "cost", "tokens", "hooks"]
+}

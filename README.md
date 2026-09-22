@@ -10,6 +10,7 @@ plugins/<plugin-name>/
 ├─ skills/<skill-name>/         # portable SKILL.md skills (the cross-agent part)
 ├─ commands/                    # Claude Code slash commands
 ├─ agents/                      # Claude Code subagents
+├─ hooks/hooks.json             # Claude Code hooks (optional)
 └─ .mcp.json                    # MCP server config (optional)
 ```
 
@@ -43,6 +44,7 @@ Copy `plugins/<plugin>/skills/<skill>/` into your agent's skills directory. See 
 | Plugin | Description |
 |---|---|
 | [hotchocolate-graphql](plugins/hotchocolate-graphql) | Architecture patterns and conventions for HotChocolate v16 GraphQL servers and Fusion v2 subgraphs. |
+| [model-policy](plugins/model-policy) | Keeps subagents on the cheapest model that fits, gates top-tier subagents behind a written reason, logs every dispatch. |
 
 ## Adding a plugin
 

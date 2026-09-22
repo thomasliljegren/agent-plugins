@@ -14,7 +14,25 @@
       "source": "./plugins/hotchocolate-graphql",
       "description": "Architecture patterns and conventions for HotChocolate v16 GraphQL servers, plus Fusion subgraphs, composition, and gateway deployment.",
       "category": "development",
-      "keywords": ["graphql", "hotchocolate", "dotnet", "fusion"]
+      "keywords": [
+        "graphql",
+        "hotchocolate",
+        "dotnet",
+        "fusion"
+      ]
+    },
+    {
+      "name": "model-policy",
+      "source": "./plugins/model-policy",
+      "description": "Keeps subagents on the cheapest model that fits: fills a missing model by agent type, gates top-tier subagents behind a written reason, logs every dispatch.",
+      "category": "productivity",
+      "keywords": [
+        "subagents",
+        "model",
+        "cost",
+        "tokens",
+        "hooks"
+      ]
     }
   ]
 }
