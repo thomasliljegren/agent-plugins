@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/model-policy.sh\" --harness claude-code",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/model-policy.sh\" --harness copilot",
             "timeout": 10
           }
         ]

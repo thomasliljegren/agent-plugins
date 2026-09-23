@@ -6,5 +6,6 @@
     "name": "Thomas Liljegren",
     "email": "thliljegren@gmail.com"
   },
-  "keywords": ["subagents", "model", "cost", "tokens", "hooks"]
+  "keywords": ["subagents", "model", "cost", "tokens", "hooks"],
+  "hooks": "hooks/hooks-copilot.json"
 }
