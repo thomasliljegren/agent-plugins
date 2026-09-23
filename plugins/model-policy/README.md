@@ -1,13 +1,14 @@
 # model-policy
 
-Keeps subagents on the cheapest model tier that fits, and logs every dispatch so the effect can be seen. Works on Claude Code, GitHub Copilot CLI, OpenAI Codex CLI and Cursor. The skill is plain `SKILL.md`, so any other agent can use it as guidance.
+Keeps subagents on the best-value model tier that fits, and logs every dispatch so the effect can be seen. Works on Claude Code, GitHub Copilot CLI, OpenAI Codex CLI and Cursor. The skill is plain `SKILL.md`, so any other agent can use it as guidance.
 
 ## What it does
 
 A hook runs before every subagent dispatch: `Agent` in Claude Code and Copilot CLI (Copilot's `task` tool), `spawn_agent` in Codex CLI, and `Task` in Cursor. It:
 
 - **fills in a missing model** with the default model for the agent type's tier (`inherit` counts as missing);
-- **lets fast, standard and strong models through** untouched;
+- **moves a superseded model to its successor**: when a caller names a model that has a stronger and cheaper successor (for example `claude-opus-5`, succeeded by `claude-opus-5.5`), the dispatch runs on the successor;
+- **lets fast, standard and strong models through** untouched otherwise;
 - **gates the frontier tier**: a frontier model is allowed only when the prompt carries a line `Model policy: frontier because <reason>`, and denied otherwise with a reason that says what to do instead;
 - **lets unknown models through** (models that match no tier) and logs them with tier `unknown`, so a new model never blocks work;
 - **logs** one line per dispatch (see [Log and report](#log-and-report)).
@@ -45,12 +46,27 @@ Tier per agent type, used when the dispatch names no model (`*` covers every oth
 | cursor | `*` | standard |
 <!-- defaults:agent-types:end -->
 
+Superseded models: a named model that has a successor which is both stronger and cheaper runs on the successor instead, logged as `upgraded`. Claude Code has none, because its `opus`, `sonnet` and `haiku` aliases already point at the latest model.
+
+<!-- defaults:superseded:begin -->
+| Harness | Named model | Runs on |
+|---|---|---|
+| copilot | `claude-opus-5` | `claude-opus-5.5` |
+| copilot | `gpt-5.6-sol` | `gpt-6-sol` |
+| codex | `gpt-5.6-sol` | `gpt-6-sol` |
+| cursor | `claude-opus-5` | `claude-opus-5.5` |
+| cursor | `gpt-5.6-sol` | `gpt-6-sol` |
+<!-- defaults:superseded:end -->
+
+The tiers are price bands, not generations. Each default is the model that gives the most for its price in its band, and the frontier band holds the most expensive models. A newer model can cost less than an older one (Claude Opus 5.5 against Opus 5, GPT-6 Sol against GPT-5.6 Sol); then the newer one is the default and the older one is superseded.
+
 How a named model gets its tier:
 
 - Each tier has a list of `match` patterns in [`config/models.json`](config/models.json). A pattern is a shell-style glob (`*` is any text, `?` is one character, everything else is literal) and matching ignores case.
 - Tiers are tried in the order frontier, strong, standard, fast, and the first match wins.
 - A trailing bracket suffix such as Cursor's `[effort=high]` is ignored.
 - A model that matches nothing is tier `unknown`. It passes through and is logged.
+- A model listed in `supersededBy` is rewritten to its successor first, unless the successor is in the frontier tier. The hook never upgrades a dispatch into the frontier tier; then the named model is classified as usual. Keys match the whole model name, ignoring case and any bracket suffix, and the bracket suffix is kept on the successor.
 
 The frontier gate looks for the justification on a line of its own in the prompt, not inside a sentence:
 
@@ -88,13 +104,23 @@ Treat your own model as frontier on Cursor. Arrays replace, so repeat the bundle
 }
 ```
 
+Keep Claude Opus 5 on Copilot instead of upgrading it, and add your own successor. `supersededBy` is an object, so entries merge; `""` or `null` turns one off:
+
+```json
+{
+  "harnesses": {
+    "copilot": { "supersededBy": { "claude-opus-5": "", "my-old-model": "my-new-model" } }
+  }
+}
+```
+
 Send a custom Copilot agent type to the strong tier:
 
 ```json
 { "harnesses": { "copilot": { "agentTypes": { "rubber-duck": "strong" } } } }
 ```
 
-To see the effective defaults with your override applied, run `bash plugins/model-policy/scripts/defaults-table.sh tiers` (or `agent-types`).
+To see the effective defaults with your override applied, run `bash plugins/model-policy/scripts/defaults-table.sh tiers` (or `agent-types`, or `superseded`).
 
 | Variable | Default | Effect |
 |---|---|---|
@@ -146,7 +172,7 @@ The hook appends one tab-separated line per dispatch to `$XDG_STATE_HOME/model-p
 
 `time session harness project agent_type requested effective tier action prompt_chars description`
 
-`action` is `kept` (the caller named the model), `filled` (the hook chose it), `denied` (frontier without a reason) or `justified` (frontier with a reason).
+`action` is `kept` (the caller named the model), `filled` (the hook chose it), `upgraded` (the caller named a superseded model and the hook ran its successor), `denied` (frontier without a reason) or `justified` (frontier with a reason).
 
 ```
 bash plugins/model-policy/scripts/report.sh [days] [harness]

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Prints the effective tier map (bundled defaults plus your override) as markdown tables.
-# Run: bash scripts/defaults-table.sh [tiers|agent-types]
+# Run: bash scripts/defaults-table.sh [tiers|agent-types|superseded]
 set -u
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 . "$HERE/lib/config.sh"
@@ -20,8 +20,16 @@ case "${1:-tiers}" in
       (.harnesses | to_entries[] | .key as $h | .value.agentTypes | to_entries[]
         | "| \($h) | `\(.key)` | \(.value) |")' <<<"$CONFIG"
     ;;
+  superseded)
+    jq -r '
+      "| Harness | Named model | Runs on |",
+      "|---|---|---|",
+      (.harnesses | to_entries[] | .key as $h | (.value.supersededBy // {}) | to_entries[]
+        | select(.value | type == "string" and . != "")
+        | "| \($h) | `\(.key)` | `\(.value)` |")' <<<"$CONFIG"
+    ;;
   *)
-    echo "usage: defaults-table.sh [tiers|agent-types]" >&2
+    echo "usage: defaults-table.sh [tiers|agent-types|superseded]" >&2
     exit 2
     ;;
 esac

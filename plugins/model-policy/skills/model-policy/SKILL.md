@@ -1,6 +1,6 @@
 ---
 name: model-policy
-description: Which model to name when dispatching a subagent (the Agent tool in Claude Code, task in Copilot CLI, spawn_agent in Codex CLI, Task in Cursor, or a workflow agent() call), so the cheapest model tier that fits does the work. Use whenever you are about to dispatch, re-dispatch or escalate a subagent, or when a dispatch was denied with a model-policy reason.
+description: Which model to name when dispatching a subagent (the Agent tool in Claude Code, task in Copilot CLI, spawn_agent in Codex CLI, Task in Cursor, or a workflow agent() call), so the best-value model tier that fits does the work. Use whenever you are about to dispatch, re-dispatch or escalate a subagent, or when a dispatch was denied with a model-policy reason.
 ---
 
 # Model policy for subagents
@@ -25,7 +25,7 @@ Default model per tier (the user may have changed these in `~/.config/model-poli
 | cursor | `composer-2.5` | `claude-sonnet-5` | `claude-opus-5.5` | `gpt-6-astra` |
 <!-- defaults:tiers:end -->
 
-The tiers are price bands, and each default is the model that gives the most for its price in its band. Other models your harness offers belong to the band of the model closest in price: small, mini, flash and luna models are fast, and the most expensive models are frontier. A newer model is not always dearer. When a newer model is both stronger and cheaper than an older one (Claude Opus 5.5 against Opus 5, GPT-6 Sol against GPT-5.6 Sol), always use the newer one.
+The tiers are price bands, and each default is the model that gives the most for its price in its band. Other models your harness offers belong to the band of the model closest in price: small, mini, flash and luna models are fast, and the most expensive models are frontier. A newer model is not always dearer. When a newer model is both stronger and cheaper than an older one (Claude Opus 5.5 against Opus 5, GPT-6 Sol against GPT-5.6 Sol), always use the newer one. Where the hook runs, it rewrites such a superseded model to its successor anyway and logs it as `upgraded`.
 
 The hook denies a frontier-tier dispatch unless the prompt has this on a line of its own:
 

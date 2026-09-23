@@ -12,6 +12,11 @@ types=$(bash "$ROOT/scripts/defaults-table.sh" agent-types)
 check "README tier table matches config/models.json" "$tiers" "$(between "$README" tiers)"
 check "README agent type table matches config/models.json" "$types" "$(between "$README" agent-types)"
 check "SKILL tier table matches config/models.json" "$tiers" "$(between "$SKILL" tiers)"
+superseded=$(bash "$ROOT/scripts/defaults-table.sh" superseded)
+check "the superseded table lists claude-opus-5" yes "$(grep -q '| copilot | `claude-opus-5` | `claude-opus-5.5` |' <<<"$superseded" && echo yes)"
+check "README superseded table matches config/models.json" "$superseded" "$(between "$README" superseded)"
+check "README documents supersededBy" yes "$(grep -q 'supersededBy' "$README" && echo yes)"
+check "README documents the upgraded action" yes "$(grep -q '`upgraded`' "$README" && echo yes)"
 
 for v in MODEL_POLICY_CONFIG MODEL_POLICY_LOG MODEL_POLICY_DEBUG XDG_CONFIG_HOME XDG_STATE_HOME CLAUDE_CODE_SUBAGENT_MODEL; do
   check "README documents $v" yes "$(grep -q "$v" "$README" && echo yes)"

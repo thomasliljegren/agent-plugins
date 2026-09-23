@@ -188,6 +188,17 @@ Debug: `MODEL_POLICY_DEBUG=1` appends the raw stdin payload (one line, with harn
 
 Live checks (manual, recorded in the PR): Copilot CLI with the plugin installed from a local path, `MODEL_POLICY_DEBUG=1`, one `task` dispatch without a model and one frontier dispatch. Cursor and Codex payload fields are marked for a live capture with the same debug flag; the normalizer already accepts the documented alternatives.
 
+## Addendum: price-band tiers and superseded models
+
+Added after review. The skill aims at the most performance per unit of cost, so tiers are price bands, not model generations.
+
+- **Defaults.** Each tier default is the best-value model in its band, and frontier holds the most expensive models (`gpt-6-astra`, `*fable*`, `*mythos*`). Claude Opus 5.5 costs less than Opus 5, and GPT-6 Sol costs less than GPT-5.6 Sol, so the newer model is the strong default in each case. The Codex ladder is `gpt-6-luna` / `gpt-5.6-terra` / `gpt-6-sol` / `gpt-6-astra`.
+- **`supersededBy`.** A new per-harness key in the tier map, `{ "<model>": "<successor>" }`, lists models whose successor is both stronger and cheaper. When a dispatch names such a model, the hook rewrites it to the successor, using the same output shape as a fill, and logs action `upgraded` (requested = the named model, effective = the successor, tier = the successor's tier).
+- **Matching.** Keys match the whole name, ignoring case, after stripping a bracket suffix. The suffix is kept on the successor.
+- **No upgrade into frontier.** If the successor classifies as frontier, the hook leaves the named model alone and classifies it as usual. Only one step is followed.
+- **Turning entries off.** An override value of `""` or `null` switches off an entry.
+- **Claude Code** has no entries, because its aliases already resolve to the latest model.
+
 ## Out of scope
 
 - Slash commands for non-Claude harnesses (they run `report.sh` directly).

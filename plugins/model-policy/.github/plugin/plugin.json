@@ -1,6 +1,6 @@
 {
   "name": "model-policy",
-  "description": "Keeps subagents on the cheapest model tier that fits, on Claude Code, Copilot CLI, Codex CLI and Cursor: fills a missing model by agent type, requires a written reason for a frontier-tier subagent, and logs every dispatch so the effect can be measured.",
+  "description": "Keeps subagents on the best-value model tier that fits, on Claude Code, Copilot CLI, Codex CLI and Cursor: fills a missing model by agent type, moves superseded models to their stronger and cheaper successor, requires a written reason for a frontier-tier subagent, and logs every dispatch so the effect can be measured.",
   "version": "0.2.0",
   "author": {
     "name": "Thomas Liljegren",

@@ -36,7 +36,7 @@ echo "Total dispatches: $(wc -l <"$ROWS" | tr -d ' ')"
 section "By harness" '$3'
 section "By tier (fast, standard, strong, frontier; unknown = model not in the tier map)" '$8'
 section "By effective model" '$7'
-section "By action (kept = caller named the model, filled = hook chose it, denied = frontier without a reason, justified = frontier with a reason)" '$9'
+section "By action (kept = caller named the model, filled = hook chose it, upgraded = named model was superseded by a stronger, cheaper one, denied = frontier without a reason, justified = frontier with a reason)" '$9'
 section "By harness, agent type and effective model" '$3 " " $5 " -> " $7'
 section "By day" 'substr($1, 1, 10)' '-k2'
 echo
