@@ -77,7 +77,7 @@ def render($d):
     ($d.in + {model: $d.effective}) as $u | fill_reason($d) as $r
     | if $harness == "copilot" then {permissionDecision: "allow", permissionDecisionReason: $r, modifiedArgs: $u}
       elif $harness == "cursor" then {permission: "allow", updated_input: $u}
-      elif $harness == "codex" then {hookSpecificOutput: {hookEventName: "PreToolUse", updatedInput: $u}}
+      elif $harness == "codex" then {hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "allow", updatedInput: $u}}
       else {hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "allow", permissionDecisionReason: $r, updatedInput: $u}}
       end
   elif $d.action == "denied" then

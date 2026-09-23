@@ -12,8 +12,7 @@ while IFS='|' read -r h fast_type fast std strong frontier; do
 
   out=$(hook "$h" "$fast_type" "" "look around")
   check "$h: $fast_type without a model is filled with $fast" "$fast" "$(rewritten "$h" "$out" | jq -r .model)"
-  fill_decision=allow; [ "$h" = codex ] && fill_decision=""  # Codex gets updatedInput only
-  check "$h: a fill is allowed" "$fill_decision" "$(decision "$h" "$out")"
+  check "$h: a fill is allowed" allow "$(decision "$h" "$out")"
   check "$h: a fill keeps the prompt" "look around" "$(rewritten "$h" "$out" | jq -r ".$prompt_field")"
   check "$h: a fill keeps the rest of the input" d "$(rewritten "$h" "$out" | jq -r '.description // .task_name')"
   check "$h: a fill prints exactly one JSON object" 1 "$(jq -s length <<<"$out")"
