@@ -6,5 +6,7 @@
     "name": "Thomas Liljegren",
     "email": "thliljegren@gmail.com"
   },
-  "keywords": ["subagents", "model", "cost", "tokens", "hooks"]
+  "keywords": ["subagents", "model", "cost", "tokens", "hooks"],
+  "skills": "./skills/",
+  "hooks": "./hooks/hooks-codex.json"
 }

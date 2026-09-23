@@ -1,0 +1,43 @@
+{
+  "harnesses": {
+    "claude-code": {
+      "tiers": {
+        "fast":     { "default": "haiku",  "match": ["haiku", "*haiku*"] },
+        "standard": { "default": "sonnet", "match": ["sonnet", "*sonnet*"] },
+        "strong":   { "default": "opus",   "match": ["opus", "*opus*"] },
+        "frontier": { "default": "fable",  "match": ["fable", "best", "*fable*", "*mythos*"] }
+      },
+      "agentTypes": { "Explore": "fast", "claude-code-guide": "fast", "*": "standard" }
+    },
+    "copilot": {
+      "tiers": {
+        "fast":     { "default": "gpt-5.4-mini",    "match": ["*haiku*", "*-mini", "*flash*", "*luna*"] },
+        "standard": { "default": "claude-sonnet-5", "match": ["*sonnet*", "gpt-5.6-terra", "gpt-5.5", "gpt-5.4", "*codex*"] },
+        "strong":   { "default": "claude-opus-5.5", "match": ["claude-opus-5.5", "claude-opus-5", "claude-opus-4.*", "gpt-6-sol", "gpt-5.6-sol"] },
+        "frontier": { "default": "gpt-6-astra",     "match": ["gpt-6-astra", "*fable*", "*mythos*"] }
+      },
+      "supersededBy": { "claude-opus-5": "claude-opus-5.5", "gpt-5.6-sol": "gpt-6-sol" },
+      "agentTypes": { "explore": "fast", "*": "standard" }
+    },
+    "codex": {
+      "tiers": {
+        "fast":     { "default": "gpt-6-luna",    "match": ["gpt-6-luna", "*-mini", "*luna*"] },
+        "standard": { "default": "gpt-5.6-terra", "match": ["gpt-5.6-terra"] },
+        "strong":   { "default": "gpt-6-sol",     "match": ["gpt-6-sol", "gpt-5.6-sol"] },
+        "frontier": { "default": "gpt-6-astra",   "match": ["gpt-6-astra"] }
+      },
+      "supersededBy": { "gpt-5.6-sol": "gpt-6-sol" },
+      "agentTypes": { "explorer": "fast", "*": "standard" }
+    },
+    "cursor": {
+      "tiers": {
+        "fast":     { "default": "composer-2.5",    "match": ["composer-*", "*haiku*", "*-mini", "*flash*", "*luna*"] },
+        "standard": { "default": "claude-sonnet-5", "match": ["*sonnet*", "gpt-5.6-terra"] },
+        "strong":   { "default": "claude-opus-5.5", "match": ["claude-opus-5.5", "claude-opus-5", "claude-opus-4*", "gpt-6-sol", "gpt-5.6-sol"] },
+        "frontier": { "default": "gpt-6-astra",     "match": ["gpt-6-astra", "*fable*", "*mythos*"] }
+      },
+      "supersededBy": { "claude-opus-5": "claude-opus-5.5", "gpt-5.6-sol": "gpt-6-sol" },
+      "agentTypes": { "explore": "fast", "*": "standard" }
+    }
+  }
+}

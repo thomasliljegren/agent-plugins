@@ -2,11 +2,11 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Agent",
+        "matcher": "spawn_agent",
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/model-policy.sh\" --harness claude-code",
+            "command": "bash \"${PLUGIN_ROOT}/scripts/model-policy.sh\" --harness codex",
             "timeout": 10
           }
         ]
