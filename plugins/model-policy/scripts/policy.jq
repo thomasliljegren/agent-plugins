@@ -23,6 +23,12 @@ def classify($m):
   | first(tier_order[] as $t
       | select(any((h.tiers[$t].match // [])[] | strings; . as $p | $b | glob_match($p)))
       | $t) // "unknown";
+# The configured stronger, cheaper successor of a named model, keeping any bracket suffix, or "".
+def successor($m):
+  ($m | base_model) as $b
+  | (h.supersededBy // {} | if type == "object" then . else {} end)
+  | first(to_entries[] | select((.key | ascii_downcase) == ($b | ascii_downcase)) | .value | strings | select(. != "")) // ""
+  | if . == "" then "" else . + $m[($b | length):] end;
 def agent_tier($type): h.agentTypes[$type] // h.agentTypes["*"] // "standard" | str;
 
 def tool_input:
@@ -55,8 +61,10 @@ def decide:
           | if $d == "" then {effective: "", tier: "unknown", action: "kept"}
             else {effective: $d, tier: $t, action: "filled"} end
         else
-          classify($req) as $t
-          | if $t != "frontier" then {effective: $req, tier: $t, action: "kept"}
+          successor($req) as $s
+          | classify($req) as $t
+          | if $s != "" and classify($s) != "frontier" then {effective: $s, tier: classify($s), action: "upgraded"}
+            elif $t != "frontier" then {effective: $req, tier: $t, action: "kept"}
             elif $n.prompt | justified then {effective: $req, tier: $t, action: "justified"}
             else {effective: "-", tier: $t, action: "denied"} end
         end
@@ -64,6 +72,9 @@ def decide:
 
 def fill_reason($d):
   "model-policy: no model named, \(if $d.agent_type == "" then "subagent" else $d.agent_type end) runs on \($d.effective) (\($d.tier) tier)";
+
+def upgrade_reason($d):
+  "model-policy: \($d.requested) is superseded by \($d.effective) (stronger and cheaper), running on \($d.effective)";
 
 def deny_reason($d):
   "model-policy: subagents do not run on \($d.requested) (frontier tier) without a reason. "
@@ -73,8 +84,9 @@ def deny_reason($d):
   + "and then add this line to the prompt: \"Model policy: frontier because <reason>\".";
 
 def render($d):
-  if $d.action == "filled" then
-    ($d.in + {model: $d.effective}) as $u | fill_reason($d) as $r
+  if $d.action == "filled" or $d.action == "upgraded" then
+    ($d.in + {model: $d.effective}) as $u
+    | (if $d.action == "filled" then fill_reason($d) else upgrade_reason($d) end) as $r
     | if $harness == "copilot" then {permissionDecision: "allow", permissionDecisionReason: $r, modifiedArgs: $u}
       elif $harness == "cursor" then {permission: "allow", updated_input: $u}
       elif $harness == "codex" then {hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "allow", updatedInput: $u}}

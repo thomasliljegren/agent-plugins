@@ -66,6 +66,33 @@ check "cursor: a bracket suffix is ignored when classifying" strong "$(last_log 
 check "cursor: a bracketed frontier model is still gated" deny "$(decision cursor "$(hook cursor general-purpose 'gpt-6-astra[effort=high]' x)")"
 check "cursor: a denial also tells the user" true "$(hook cursor general-purpose gpt-6-astra x | jq '.user_message | length > 0')"
 
+# Superseded models are rewritten to their stronger, cheaper successor
+out=$(hook copilot general-purpose claude-opus-5 "review task 1")
+check "copilot: claude-opus-5 is rewritten to claude-opus-5.5" claude-opus-5.5 "$(rewritten copilot "$out" | jq -r .model)"
+check "copilot: an upgrade is allowed" allow "$(decision copilot "$out")"
+check "copilot: an upgrade keeps the prompt" "review task 1" "$(rewritten copilot "$out" | jq -r .prompt)"
+case "$(reason copilot "$out")" in *"claude-opus-5 is superseded by claude-opus-5.5"*) r=names-both ;; *) r=missing ;; esac
+check "copilot: the upgrade reason names both models" names-both "$r"
+check "copilot: an upgrade is logged" "claude-opus-5 claude-opus-5.5 strong upgraded" "$(last_log 6) $(last_log 7) $(last_log 8) $(last_log 9)"
+out=$(hook codex worker gpt-5.6-sol "review task 1")
+check "codex: gpt-5.6-sol is rewritten to gpt-6-sol" gpt-6-sol "$(rewritten codex "$out" | jq -r .model)"
+check "codex: an upgrade is allowed" allow "$(decision codex "$out")"
+check "codex: an upgrade keeps the message" "review task 1" "$(rewritten codex "$out" | jq -r .message)"
+check "cursor: an upgrade keeps the bracket suffix" 'claude-opus-5.5[effort=high]' \
+  "$(rewritten cursor "$(hook cursor general-purpose 'claude-opus-5[effort=high]' x)" | jq -r .model)"
+check "copilot: superseded matching ignores case" claude-opus-5.5 "$(rewritten copilot "$(hook copilot general-purpose Claude-Opus-5 x)" | jq -r .model)"
+check "copilot: a successor is not itself rewritten" "" "$(hook copilot general-purpose claude-opus-5.5 x)"
+check "claude-code: named models are never rewritten" "" "$(hook claude-code general-purpose opus x)"
+printf '%s\n' '{"harnesses":{"copilot":{"supersededBy":{"claude-opus-5":""}}}}' >"$MODEL_POLICY_CONFIG"
+check "override: an empty successor turns the rewrite off" "" "$(hook copilot general-purpose claude-opus-5 x)"
+check "override: the other entries stay" gpt-6-sol "$(rewritten copilot "$(hook copilot general-purpose gpt-5.6-sol x)" | jq -r .model)"
+printf '%s\n' '{"harnesses":{"copilot":{"supersededBy":{"claude-opus-5":null}}}}' >"$MODEL_POLICY_CONFIG"
+check "override: a null successor turns the rewrite off" "" "$(hook copilot general-purpose claude-opus-5 x)"
+printf '%s\n' '{"harnesses":{"copilot":{"supersededBy":{"gpt-6-sol":"gpt-6-astra"}}}}' >"$MODEL_POLICY_CONFIG"
+check "never upgrades into the frontier tier" "" "$(hook copilot general-purpose gpt-6-sol x)"
+check "a skipped upgrade is logged as kept on the named model" "gpt-6-sol strong kept" "$(last_log 7) $(last_log 8) $(last_log 9)"
+rm -f "$MODEL_POLICY_CONFIG"
+
 # Things that are not dispatches
 lines=$(wc -l <"$MODEL_POLICY_LOG" | tr -d ' ')
 check "claude-code: other tools are ignored" "" "$(jq -n '{tool_name:"Bash",tool_input:{command:"ls"}}' | bash "$HOOK" --harness claude-code)"
