@@ -37,7 +37,7 @@ while IFS='|' read -r file h event matcher type fill; do
   check "$file command runs and fills $fill" "$fill" "$(rewritten "$h" "$out" | jq -r .model)"
 done <<'EOF'
 hooks.json|claude-code|PreToolUse|Agent|Explore|haiku
-hooks-copilot.json|copilot|PreToolUse|Agent|explore|claude-haiku-4.5
+hooks-copilot.json|copilot|PreToolUse|Agent|explore|gpt-5.4-mini
 hooks-codex.json|codex|PreToolUse|spawn_agent|explorer|gpt-6-luna
 hooks-cursor.json|cursor|preToolUse|Task|explore|composer-2.5
 EOF

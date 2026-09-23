@@ -80,7 +80,7 @@ Shape:
     },
     "copilot": {
       "tiers": {
-        "fast":     { "default": "claude-haiku-4.5", "match": ["*haiku*", "*-mini", "*flash*", "*luna*"] },
+        "fast":     { "default": "gpt-5.4-mini",     "match": ["*haiku*", "*-mini", "*flash*", "*luna*"] },
         "standard": { "default": "claude-sonnet-5",  "match": ["*sonnet*", "gpt-5.6-terra", "gpt-5.5", "gpt-5.4", "*codex*"] },
         "strong":   { "default": "claude-opus-5",    "match": ["claude-opus-5", "claude-opus-4.*", "gpt-5.6-sol", "gpt-6-astra"] },
         "frontier": { "default": "claude-opus-5.5",  "match": ["claude-opus-5.5", "gpt-6-sol", "*fable*", "*mythos*"] }
@@ -108,6 +108,8 @@ Shape:
   }
 }
 ```
+
+The Copilot `fast` default is `gpt-5.4-mini`, not `claude-haiku-4.5`. Copilot's `explore` agent runs at reasoning effort `low`, and a live check showed an explicitly set `claude-haiku-4.5` fails there with "Reasoning effort 'low' is not supported".
 
 Classification rules:
 

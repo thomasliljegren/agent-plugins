@@ -20,7 +20,7 @@ Default model per tier (the user may have changed these in `~/.config/model-poli
 | Harness | fast | standard | strong | frontier |
 |---|---|---|---|---|
 | claude-code | `haiku` | `sonnet` | `opus` | `fable` |
-| copilot | `claude-haiku-4.5` | `claude-sonnet-5` | `claude-opus-5` | `claude-opus-5.5` |
+| copilot | `gpt-5.4-mini` | `claude-sonnet-5` | `claude-opus-5` | `claude-opus-5.5` |
 | codex | `gpt-6-luna` | `gpt-6-astra` | `gpt-5.6-sol` | `gpt-6-sol` |
 | cursor | `composer-2.5` | `claude-sonnet-5` | `claude-opus-5` | `claude-opus-5.5` |
 <!-- defaults:tiers:end -->

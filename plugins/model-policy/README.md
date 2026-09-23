@@ -24,7 +24,7 @@ Default model per tier, the model a dispatch gets when it names none:
 | Harness | fast | standard | strong | frontier |
 |---|---|---|---|---|
 | claude-code | `haiku` | `sonnet` | `opus` | `fable` |
-| copilot | `claude-haiku-4.5` | `claude-sonnet-5` | `claude-opus-5` | `claude-opus-5.5` |
+| copilot | `gpt-5.4-mini` | `claude-sonnet-5` | `claude-opus-5` | `claude-opus-5.5` |
 | codex | `gpt-6-luna` | `gpt-6-astra` | `gpt-5.6-sol` | `gpt-6-sol` |
 | cursor | `composer-2.5` | `claude-sonnet-5` | `claude-opus-5` | `claude-opus-5.5` |
 <!-- defaults:tiers:end -->
@@ -129,6 +129,8 @@ copilot plugin install model-policy@agent-plugins
 ```
 
 Toggle with `copilot plugin enable|disable model-policy@agent-plugins` (a bare `model-policy` also works). To try it without installing, start Copilot CLI with `copilot --plugin-dir plugins/model-policy` from a checkout. Copilot reads `.github/plugin/plugin.json`, which points at `hooks/hooks-copilot.json`. See [Copilot CLI plugins](https://docs.github.com/copilot/concepts/agents/about-plugins).
+
+Copilot's built-in `explore` agent runs with reasoning effort `low`, and it fails on a model without reasoning-effort support (for example `claude-haiku-4.5`: "Reasoning effort 'low' is not supported"). That's why the Copilot `fast` default is `gpt-5.4-mini`. If you override `fast`, pick a model that supports reasoning effort.
 
 ### Codex CLI
 

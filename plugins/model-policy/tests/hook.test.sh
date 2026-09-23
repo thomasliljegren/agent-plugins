@@ -46,7 +46,7 @@ while IFS='|' read -r h fast_type fast std strong frontier; do
   check "$h: an unknown model is logged as unknown" "unknown kept some-new-model-9" "$(last_log 8) $(last_log 9) $(last_log 6)"
 done <<'EOF'
 claude-code|Explore|haiku|sonnet|opus|fable
-copilot|explore|claude-haiku-4.5|claude-sonnet-5|claude-opus-5|claude-opus-5.5
+copilot|explore|gpt-5.4-mini|claude-sonnet-5|claude-opus-5|claude-opus-5.5
 codex|explorer|gpt-6-luna|gpt-6-astra|gpt-5.6-sol|gpt-6-sol
 cursor|explore|composer-2.5|claude-sonnet-5|claude-opus-5|claude-opus-5.5
 EOF

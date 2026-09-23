@@ -21,9 +21,9 @@ echo '{"harnesses":{"copilot":{"tiers":{"fast":{"match":["only-this"]}}}}}' >"$M
 check "override arrays replace" '["only-this"]' "$(model_policy_config | jq -c '.harnesses.copilot.tiers.fast.match')"
 
 echo 'not json' >"$MODEL_POLICY_CONFIG"
-check "invalid override is ignored" claude-haiku-4.5 "$(model_policy_config | jq -r '.harnesses.copilot.tiers.fast.default')"
+check "invalid override is ignored" gpt-5.4-mini "$(model_policy_config | jq -r '.harnesses.copilot.tiers.fast.default')"
 echo '[1,2]' >"$MODEL_POLICY_CONFIG"
-check "non-object override is ignored" claude-haiku-4.5 "$(model_policy_config | jq -r '.harnesses.copilot.tiers.fast.default')"
+check "non-object override is ignored" gpt-5.4-mini "$(model_policy_config | jq -r '.harnesses.copilot.tiers.fast.default')"
 rm -f "$MODEL_POLICY_CONFIG"
 
 check "log path follows XDG_STATE_HOME" /x/model-policy/dispatches.tsv "$(unset MODEL_POLICY_LOG; XDG_STATE_HOME=/x model_policy_log_path)"
