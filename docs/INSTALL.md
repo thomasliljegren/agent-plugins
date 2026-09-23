@@ -37,6 +37,10 @@ Copy skill folders to `~/.config/opencode/skill/` (global) or `.opencode/skill/`
 
 Most standard-compliant agents look in a project-level or user-level `skills` directory; skills.sh knows the current path for each supported agent, so prefer `npx skills add` over manual copying.
 
+## Plugins with hooks (model-policy)
+
+`model-policy` enforces its rules with a hook, and a hook only runs when the plugin is installed as a plugin, not when you copy the skill folder. It ships manifests and hooks for Claude Code, Copilot CLI (`copilot plugin install model-policy@agent-plugins` after `copilot plugin marketplace add thomasliljegren/agent-plugins`), Codex CLI and Cursor. See [plugins/model-policy/README.md](../plugins/model-policy/README.md#install). On any other agent, the skill works as guidance only.
+
 ## MCP servers
 
 If a plugin ships a `.mcp.json`, Claude Code picks it up automatically on plugin install. For other agents, register the same server command in that agent's MCP config (Codex: `~/.codex/config.toml`; OpenCode: `opencode.json`; Copilot: MCP settings in VS Code).

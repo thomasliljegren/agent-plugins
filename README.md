@@ -11,10 +11,13 @@ plugins/<plugin-name>/
 ├─ commands/                    # Claude Code slash commands
 ├─ agents/                      # Claude Code subagents
 ├─ hooks/hooks.json             # Claude Code hooks (optional)
+├─ .github/plugin/plugin.json   # Copilot CLI manifest (optional, when Copilot needs different hooks)
+├─ .codex-plugin/plugin.json    # Codex CLI manifest (optional)
+├─ .cursor-plugin/plugin.json   # Cursor manifest (optional)
 └─ .mcp.json                    # MCP server config (optional)
 ```
 
-Skills are the portable core — any standard-compliant agent can use them unchanged. Commands, subagents, hooks, and MCP wiring are Claude Code extras bundled in the same plugin.
+Skills are the portable core; any standard-compliant agent can use them unchanged. Commands, subagents, hooks and MCP wiring are harness extras bundled in the same plugin. Most plugins ship them for Claude Code only. A plugin that needs hooks elsewhere adds that harness's manifest (see [model-policy](plugins/model-policy)).
 
 ## Install
 
@@ -44,7 +47,7 @@ Copy `plugins/<plugin>/skills/<skill>/` into your agent's skills directory. See 
 | Plugin | Description |
 |---|---|
 | [hotchocolate-graphql](plugins/hotchocolate-graphql) | Architecture patterns and conventions for HotChocolate v16 GraphQL servers and Fusion v2 subgraphs. |
-| [model-policy](plugins/model-policy) | Keeps subagents on the cheapest model that fits, gates top-tier subagents behind a written reason, logs every dispatch. |
+| [model-policy](plugins/model-policy) | Keeps subagents on the cheapest model tier that fits, gates frontier-tier subagents behind a written reason, logs every dispatch. Ships hooks for Claude Code, Copilot CLI, Codex CLI and Cursor. |
 
 ## Adding a plugin
 

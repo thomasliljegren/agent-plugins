@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Cross-agent plugin collection: portable Agent Skills (SKILL.md) with Claude Code plugin wrappers.",
-    "version": "0.3.0"
+    "version": "0.4.0"
   },
   "plugins": [
     {
@@ -24,7 +24,7 @@
     {
       "name": "model-policy",
       "source": "./plugins/model-policy",
-      "description": "Keeps subagents on the cheapest model that fits: fills a missing model by agent type, gates top-tier subagents behind a written reason, logs every dispatch.",
+      "description": "Keeps subagents on the cheapest model tier that fits on Claude Code, Copilot CLI, Codex CLI and Cursor: fills a missing model by agent type, gates frontier-tier subagents behind a written reason, logs every dispatch.",
       "category": "productivity",
       "keywords": [
         "subagents",
