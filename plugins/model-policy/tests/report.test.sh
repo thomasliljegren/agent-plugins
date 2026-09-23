@@ -7,7 +7,7 @@ case "$(bash "$REPORT")" in "No dispatches logged yet"*) r=empty ;; *) r=other ;
 check "no log yet" empty "$r"
 
 hook copilot explore "" x >/dev/null
-hook copilot general-purpose claude-opus-5.5 "bring it together" >/dev/null
+hook copilot general-purpose gpt-6-astra "bring it together" >/dev/null
 hook codex explorer "" x >/dev/null
 printf '2000-01-01T00:00:00Z\tsess0000\tclaude-code\tproj\tExplore\t-\thaiku\tfast\tfilled\t1\told\n' >>"$MODEL_POLICY_LOG"
 
@@ -17,7 +17,7 @@ check "by harness" yes "$(grep -qx '      2  copilot' <<<"$out" && echo yes)"
 check "by tier" yes "$(grep -qx '      2  fast' <<<"$out" && echo yes)"
 check "by action" yes "$(grep -qx '      1  denied' <<<"$out" && echo yes)"
 check "by harness, agent type and model" yes "$(grep -qx '      1  codex explorer -> gpt-6-luna' <<<"$out" && echo yes)"
-check "frontier section lists the denial" yes "$(grep -q 'denied.*claude-opus-5.5' <<<"$out" && echo yes)"
+check "frontier section lists the denial" yes "$(grep -q 'denied.*gpt-6-astra' <<<"$out" && echo yes)"
 out=$(bash "$REPORT" 14 copilot)
 check "harness filter" yes "$(grep -qx 'Total dispatches: 2' <<<"$out" && echo yes)"
 out=$(bash "$REPORT" 36500)

@@ -19,13 +19,13 @@ check "Copilot loading the Claude hook: logged as copilot" copilot "$(last_log 3
 check "Claude Code inside a Copilot shell stays Claude" haiku \
   "$(payload claude-code Explore "" x | COPILOT_CLI=1 run --harness claude-code | jq -r .hookSpecificOutput.updatedInput.model)"
 check "Cursor loading the Claude hook: Cursor shape" deny \
-  "$(payload cursor general-purpose claude-opus-5.5 x | run --harness claude-code | jq -r .permission)"
+  "$(payload cursor general-purpose gpt-6-astra x | run --harness claude-code | jq -r .permission)"
 check "Claude Code inside a Cursor terminal stays Claude" haiku \
   "$(payload claude-code Explore "" x | CURSOR_VERSION=3 CURSOR_PLUGIN_ROOT=/x run --harness claude-code | jq -r .hookSpecificOutput.updatedInput.model)"
 
 # Explicit flags win
 check "--harness copilot without COPILOT_CLI" claude-sonnet-5 "$(payload copilot task "" x | run --harness copilot | jq -r .modifiedArgs.model)"
-check "--harness=codex form" gpt-6-astra "$(payload codex worker "" x | run --harness=codex | jq -r .hookSpecificOutput.updatedInput.model)"
+check "--harness=codex form" gpt-5.6-terra "$(payload codex worker "" x | run --harness=codex | jq -r .hookSpecificOutput.updatedInput.model)"
 lines=$(wc -l <"$MODEL_POLICY_LOG" | tr -d ' ')
 check "an unknown harness does nothing" "" "$(payload claude-code Explore "" x | run --harness foo)"
 check "an unknown harness writes no log line" "$lines" "$(wc -l <"$MODEL_POLICY_LOG" | tr -d ' ')"
@@ -35,11 +35,11 @@ override() { printf '%s\n' "$1" >"$MODEL_POLICY_CONFIG"; }
 override '{"harnesses":{"copilot":{"tiers":{"fast":{"default":"gpt-5-mini"}}}}}'
 check "override: new fast default is used" gpt-5-mini "$(hook copilot explore "" x | jq -r .modifiedArgs.model)"
 override '{"harnesses":{"copilot":{"agentTypes":{"rubber-duck":"strong"}}}}'
-check "override: new agent type mapping" claude-opus-5 "$(hook copilot rubber-duck "" x | jq -r .modifiedArgs.model)"
+check "override: new agent type mapping" claude-opus-5.5 "$(hook copilot rubber-duck "" x | jq -r .modifiedArgs.model)"
 check "override: other agent types keep their mapping" gpt-5.4-mini "$(hook copilot explore "" x | jq -r .modifiedArgs.model)"
 override '{"harnesses":{"copilot":{"tiers":{"frontier":{"match":["my-big-model"]}}}}}'
 check "override: a custom frontier model is gated" deny "$(decision copilot "$(hook copilot general-purpose my-big-model x)")"
-check "override: match arrays replace, so the old frontier model is no longer gated" "" "$(hook copilot general-purpose claude-opus-5.5 x)"
+check "override: match arrays replace, so the old frontier model is no longer gated" "" "$(hook copilot general-purpose gpt-6-astra x)"
 for blank in '""' null 5; do
   override "{\"harnesses\":{\"copilot\":{\"tiers\":{\"fast\":{\"default\":$blank}}}}}"
   check "override: fast default $blank keeps the dispatch unchanged" "" "$(hook copilot explore "" x)"
@@ -47,7 +47,7 @@ for blank in '""' null 5; do
 done
 override '{"harnesses":{"copilot":null}}'
 check "override: a removed harness block keeps the dispatch unchanged" "" "$(hook copilot explore "" x)"
-check "override: a removed harness block still denies nothing" "" "$(hook copilot general-purpose claude-opus-5.5 x)"
+check "override: a removed harness block still denies nothing" "" "$(hook copilot general-purpose gpt-6-astra x)"
 override 'not json'
 check "override: an invalid file is ignored" gpt-5.4-mini "$(hook copilot explore "" x | jq -r .modifiedArgs.model)"
 rm -f "$MODEL_POLICY_CONFIG"

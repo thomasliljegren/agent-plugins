@@ -20,12 +20,12 @@ Default model per tier (the user may have changed these in `~/.config/model-poli
 | Harness | fast | standard | strong | frontier |
 |---|---|---|---|---|
 | claude-code | `haiku` | `sonnet` | `opus` | `fable` |
-| copilot | `gpt-5.4-mini` | `claude-sonnet-5` | `claude-opus-5` | `claude-opus-5.5` |
-| codex | `gpt-6-luna` | `gpt-6-astra` | `gpt-5.6-sol` | `gpt-6-sol` |
-| cursor | `composer-2.5` | `claude-sonnet-5` | `claude-opus-5` | `claude-opus-5.5` |
+| copilot | `gpt-5.4-mini` | `claude-sonnet-5` | `claude-opus-5.5` | `gpt-6-astra` |
+| codex | `gpt-6-luna` | `gpt-5.6-terra` | `gpt-6-sol` | `gpt-6-astra` |
+| cursor | `composer-2.5` | `claude-sonnet-5` | `claude-opus-5.5` | `gpt-6-astra` |
 <!-- defaults:tiers:end -->
 
-Other models your harness offers belong to the tier of the closest model above: small, mini, flash and luna models are fast; the flagship of a vendor's current generation is frontier.
+The tiers are price bands, and each default is the model that gives the most for its price in its band. Other models your harness offers belong to the band of the model closest in price: small, mini, flash and luna models are fast, and the most expensive models are frontier. A newer model is not always dearer. When a newer model is both stronger and cheaper than an older one (Claude Opus 5.5 against Opus 5, GPT-6 Sol against GPT-5.6 Sol), always use the newer one.
 
 The hook denies a frontier-tier dispatch unless the prompt has this on a line of its own:
 

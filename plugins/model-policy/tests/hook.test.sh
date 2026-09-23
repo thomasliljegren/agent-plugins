@@ -45,9 +45,9 @@ while IFS='|' read -r h fast_type fast std strong frontier; do
   check "$h: an unknown model is logged as unknown" "unknown kept some-new-model-9" "$(last_log 8) $(last_log 9) $(last_log 6)"
 done <<'EOF'
 claude-code|Explore|haiku|sonnet|opus|fable
-copilot|explore|gpt-5.4-mini|claude-sonnet-5|claude-opus-5|claude-opus-5.5
-codex|explorer|gpt-6-luna|gpt-6-astra|gpt-5.6-sol|gpt-6-sol
-cursor|explore|composer-2.5|claude-sonnet-5|claude-opus-5|claude-opus-5.5
+copilot|explore|gpt-5.4-mini|claude-sonnet-5|claude-opus-5.5|gpt-6-astra
+codex|explorer|gpt-6-luna|gpt-5.6-terra|gpt-6-sol|gpt-6-astra
+cursor|explore|composer-2.5|claude-sonnet-5|claude-opus-5.5|gpt-6-astra
 EOF
 
 # Harness-specific model names
@@ -60,17 +60,17 @@ hook copilot general-purpose gpt-5.4-mini x >/dev/null
 check "copilot: gpt-5.4-mini is fast" fast "$(last_log 8)"
 hook copilot general-purpose gpt-5x4 x >/dev/null
 check "copilot: a dot in a pattern is literal (gpt-5x4 is not gpt-5.4)" unknown "$(last_log 8)"
-check "copilot: matching ignores case" deny "$(decision copilot "$(hook copilot general-purpose Claude-Opus-5.5 x)")"
-hook cursor general-purpose 'claude-opus-5[effort=high]' x >/dev/null
+check "copilot: matching ignores case" deny "$(decision copilot "$(hook copilot general-purpose GPT-6-Astra x)")"
+hook cursor general-purpose 'claude-opus-4.8[effort=high]' x >/dev/null
 check "cursor: a bracket suffix is ignored when classifying" strong "$(last_log 8)"
-check "cursor: a bracketed frontier model is still gated" deny "$(decision cursor "$(hook cursor general-purpose 'claude-opus-5.5[effort=high]' x)")"
-check "cursor: a denial also tells the user" true "$(hook cursor general-purpose claude-opus-5.5 x | jq '.user_message | length > 0')"
+check "cursor: a bracketed frontier model is still gated" deny "$(decision cursor "$(hook cursor general-purpose 'gpt-6-astra[effort=high]' x)")"
+check "cursor: a denial also tells the user" true "$(hook cursor general-purpose gpt-6-astra x | jq '.user_message | length > 0')"
 
 # Things that are not dispatches
 lines=$(wc -l <"$MODEL_POLICY_LOG" | tr -d ' ')
 check "claude-code: other tools are ignored" "" "$(jq -n '{tool_name:"Bash",tool_input:{command:"ls"}}' | bash "$HOOK" --harness claude-code)"
 check "codex: other tools are ignored" "" "$(jq -n '{tool_name:"shell",tool_input:{command:["ls"]}}' | bash "$HOOK" --harness codex)"
-check "codex: an Agent-shaped call is still a dispatch" gpt-6-astra "$(payload claude-code Explore "" x | bash "$HOOK" --harness codex | jq -r '.hookSpecificOutput.updatedInput.model')"
+check "codex: an Agent-shaped call is still a dispatch" gpt-5.6-terra "$(payload claude-code Explore "" x | bash "$HOOK" --harness codex | jq -r '.hookSpecificOutput.updatedInput.model')"
 check "ignored tools write no log line" $((lines + 1)) "$(wc -l <"$MODEL_POLICY_LOG" | tr -d ' ')"
 check "garbage stdin exits 0 silently" "exit=0" "$(echo 'not json' | bash "$HOOK" --harness copilot; echo "exit=$?")"
 check "a JSON array on stdin exits 0 silently" "exit=0" "$(echo '[1]' | bash "$HOOK" --harness copilot; echo "exit=$?")"

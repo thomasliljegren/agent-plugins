@@ -24,9 +24,9 @@ Default model per tier, the model a dispatch gets when it names none:
 | Harness | fast | standard | strong | frontier |
 |---|---|---|---|---|
 | claude-code | `haiku` | `sonnet` | `opus` | `fable` |
-| copilot | `gpt-5.4-mini` | `claude-sonnet-5` | `claude-opus-5` | `claude-opus-5.5` |
-| codex | `gpt-6-luna` | `gpt-6-astra` | `gpt-5.6-sol` | `gpt-6-sol` |
-| cursor | `composer-2.5` | `claude-sonnet-5` | `claude-opus-5` | `claude-opus-5.5` |
+| copilot | `gpt-5.4-mini` | `claude-sonnet-5` | `claude-opus-5.5` | `gpt-6-astra` |
+| codex | `gpt-6-luna` | `gpt-5.6-terra` | `gpt-6-sol` | `gpt-6-astra` |
+| cursor | `composer-2.5` | `claude-sonnet-5` | `claude-opus-5.5` | `gpt-6-astra` |
 <!-- defaults:tiers:end -->
 
 Tier per agent type, used when the dispatch names no model (`*` covers every other type):
@@ -82,7 +82,7 @@ Treat your own model as frontier on Cursor. Arrays replace, so repeat the bundle
 {
   "harnesses": {
     "cursor": {
-      "tiers": { "frontier": { "match": ["claude-opus-5.5", "gpt-6-sol", "*fable*", "*mythos*", "my-big-model*"] } }
+      "tiers": { "frontier": { "match": ["gpt-6-astra", "*fable*", "*mythos*", "my-big-model*"] } }
     }
   }
 }

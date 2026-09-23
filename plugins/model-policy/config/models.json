@@ -11,19 +11,19 @@
     },
     "copilot": {
       "tiers": {
-        "fast":     { "default": "gpt-5.4-mini",     "match": ["*haiku*", "*-mini", "*flash*", "*luna*"] },
-        "standard": { "default": "claude-sonnet-5",  "match": ["*sonnet*", "gpt-5.6-terra", "gpt-5.5", "gpt-5.4", "*codex*"] },
-        "strong":   { "default": "claude-opus-5",    "match": ["claude-opus-5", "claude-opus-4.*", "gpt-5.6-sol", "gpt-6-astra"] },
-        "frontier": { "default": "claude-opus-5.5",  "match": ["claude-opus-5.5", "gpt-6-sol", "*fable*", "*mythos*"] }
+        "fast":     { "default": "gpt-5.4-mini",    "match": ["*haiku*", "*-mini", "*flash*", "*luna*"] },
+        "standard": { "default": "claude-sonnet-5", "match": ["*sonnet*", "gpt-5.6-terra", "gpt-5.5", "gpt-5.4", "*codex*"] },
+        "strong":   { "default": "claude-opus-5.5", "match": ["claude-opus-5.5", "claude-opus-5", "claude-opus-4.*", "gpt-6-sol", "gpt-5.6-sol"] },
+        "frontier": { "default": "gpt-6-astra",     "match": ["gpt-6-astra", "*fable*", "*mythos*"] }
       },
       "agentTypes": { "explore": "fast", "*": "standard" }
     },
     "codex": {
       "tiers": {
-        "fast":     { "default": "gpt-6-luna",  "match": ["gpt-6-luna", "*-mini", "*luna*"] },
-        "standard": { "default": "gpt-6-astra", "match": ["gpt-6-astra"] },
-        "strong":   { "default": "gpt-5.6-sol", "match": ["gpt-5.6-sol"] },
-        "frontier": { "default": "gpt-6-sol",   "match": ["gpt-6-sol"] }
+        "fast":     { "default": "gpt-6-luna",    "match": ["gpt-6-luna", "*-mini", "*luna*"] },
+        "standard": { "default": "gpt-5.6-terra", "match": ["gpt-5.6-terra"] },
+        "strong":   { "default": "gpt-6-sol",     "match": ["gpt-6-sol", "gpt-5.6-sol"] },
+        "frontier": { "default": "gpt-6-astra",   "match": ["gpt-6-astra"] }
       },
       "agentTypes": { "explorer": "fast", "*": "standard" }
     },
@@ -31,8 +31,8 @@
       "tiers": {
         "fast":     { "default": "composer-2.5",    "match": ["composer-*", "*haiku*", "*-mini", "*flash*", "*luna*"] },
         "standard": { "default": "claude-sonnet-5", "match": ["*sonnet*", "gpt-5.6-terra"] },
-        "strong":   { "default": "claude-opus-5",   "match": ["claude-opus-5", "claude-opus-4*", "gpt-5.6-sol"] },
-        "frontier": { "default": "claude-opus-5.5", "match": ["claude-opus-5.5", "gpt-6-sol", "*fable*", "*mythos*"] }
+        "strong":   { "default": "claude-opus-5.5", "match": ["claude-opus-5.5", "claude-opus-5", "claude-opus-4*", "gpt-6-sol", "gpt-5.6-sol"] },
+        "frontier": { "default": "gpt-6-astra",     "match": ["gpt-6-astra", "*fable*", "*mythos*"] }
       },
       "agentTypes": { "explore": "fast", "*": "standard" }
     }
