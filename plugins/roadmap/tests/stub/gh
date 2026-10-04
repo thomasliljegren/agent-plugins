@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# A stand-in for gh in the tests. Answers REST calls from $GH_STUB_RAW (a *.raw.json fixture) and logs each call to $GH_STUB_LOG.
+#   GH_STUB_SLEEP     seconds to wait before answering
+#   GH_STUB_FAIL      fail every api call with this message
+#   GH_STUB_FAIL_ON   fail only the calls whose arguments contain this text
+#   GH_STUB_BRANCH_PR a file: a pull request opened with POST is written there, and is then the branch's open pull request
+echo "gh $*" >>"${GH_STUB_LOG:-/dev/null}"
+raw=$GH_STUB_RAW
+all="$*"
+created=${GH_STUB_BRANCH_PR:-/nonexistent}
+field() {  # field NAME ARGS...: the value of -f NAME=value
+  local name=$1 arg; shift
+  for arg in "$@"; do case "$arg" in "$name="*) printf '%s' "${arg#"$name"=}"; return ;; esac; done
+}
+if [ "$*" = "auth token" ]; then echo stub-token; exit 0; fi
+[ -z "${GH_STUB_SLEEP:-}" ] || sleep "$GH_STUB_SLEEP"
+if [ -n "${GH_STUB_FAIL:-}" ]; then echo "gh: $GH_STUB_FAIL" >&2; exit 1; fi
+case "$*" in *"${GH_STUB_FAIL_ON:-<never>}"*) echo "gh: Server Error (HTTP 502)" >&2; exit 1 ;; esac
+case "$*" in
+  "api -X POST "*"/pulls "*)
+    jq -n --arg title "$(field title "$@")" --arg body "$(field body "$@")" --arg head "$(field head "$@")" --arg base "$(field base "$@")" \
+      '{number: 300, state: "open", draft: true, title: $title, body: $body, head: {ref: $head}, base: {ref: $base},
+        html_url: "https://github.com/example/enzure/pull/300"}' | tee "$created" ;;
+  "api -X PATCH "*"/pulls/"*)
+    echo '{}' ;;
+  "api -X POST "*"/labels "*)
+    echo '{}' ;;
+  *"/labels/"*)
+    name=${all##*/labels/}
+    if jq -e --arg name "$name" '.labels // [] | any(. == $name)' "$raw" >/dev/null; then echo '{}'; else echo "gh: Not Found (HTTP 404)" >&2; exit 1; fi ;;
+  *"/sub_issues"*)
+    number=${all#*/issues/}; number=${number%%/sub_issues*}
+    jq --arg number "$number" '.subIssues[$number] // []' "$raw" ;;
+  *"/issues/"[0-9]*)
+    number=${all##*/issues/}; number=${number%% *}
+    jq -e --argjson number "$number" '[.initiatives[], .subIssues[][], .bugs[], .debt[]] | map(select(.number == $number)) | .[0] // empty
+      | {number, title, state: (.state // "open"), pull_request}' "$raw" || { echo "gh: Not Found (HTTP 404)" >&2; exit 1; } ;;
+  *"labels=initiative"*) jq .initiatives "$raw" ;;
+  *"labels=bug"*) jq .bugs "$raw" ;;
+  *"labels=debt"*) jq .debt "$raw" ;;
+  *"/pulls/"[0-9]*) cat "$created" ;;
+  *"/pulls"*"head="*)
+    if [ -f "$created" ]; then jq -s . "$created"
+    else case "$*" in
+      *"state=open"*) jq '.branchPrs | map(select(.state == "open"))' "$raw" ;;
+      *) jq .branchPrs "$raw" ;;
+    esac; fi ;;
+  *"/pulls"*"state=open"*) jq .openPrs "$raw" ;;
+  *"/pulls"*"state=closed"*) jq .closedPrs "$raw" ;;
+  "api -X GET repos/"*) jq .repo "$raw" ;;
+  *) echo "gh: the stub has no answer for: $*" >&2; exit 1 ;;
+esac

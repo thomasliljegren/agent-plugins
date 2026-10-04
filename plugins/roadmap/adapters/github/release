@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# roadmap release <ids...>
+# Withdraws a claim: removes the ids' closing keywords from this branch's pull request, and closes a draft that closes nothing more.
+# Never deletes a branch. Safe to repeat.
+set -u
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+
+die() { echo "roadmap release: $1." >&2; exit 1; }
+
+[ $# -gt 0 ] || die "usage: roadmap release <ids...>"
+wanted=$(numbers "$@") || die "an id is an issue number, with or without #"
+list=$(printf '%s\n' "$wanted" | sed 's/^/#/' | paste -sd, - | sed 's/,/, /g')
+
+slug=$(github_repo) || die "$slug"
+api="repos/$slug"
+err=$(mktemp "${TMPDIR:-/tmp}/roadmap.XXXXXX") || die "cannot create a temporary file"
+trap 'rm -f "$err"' EXIT
+call() { gh api "$@" 2>"$err" || { gh_reason "$err" $?; return 1; }; }
+
+branch=$(git -C "$root" branch --show-current 2>/dev/null)
+[ -n "$branch" ] || die "this checkout is on a detached HEAD, so it has no pull request"
+answer=$(call -X GET "$api/pulls" -f head="${slug%%/*}:$branch" -f state=open -f per_page=1) || die "$answer"
+number=$(jq -r '.[0].number // empty' <<<"$answer")
+if [ -z "$number" ]; then
+  echo "Nothing to release: $branch has no open pull request, so it claims nothing."
+  exit 0
+fi
+
+body=$(jq -r '.[0].body // ""' <<<"$answer")
+draft=$(jq -r '.[0].draft' <<<"$answer")
+# The keyword goes with its number, line by line: the head of a list takes the separator after it, any other item the one
+# before it, and a line or bullet that held nothing else goes too. A keyword split from its number by a line break is last.
+new=$(jq -rn --arg body "$body" --argjson wanted "$(printf '%s\n' "$wanted" | jq -Rn '[inputs]')" '
+  def keyword: "\\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?):?";
+  def between: "(?:,[ \\t]*|[ \\t]+and[ \\t]+)";
+  def drop($n):
+    (keyword + "[ \\t]+#\($n)(?![0-9])") as $item
+    | gsub($item + between + "(?=(?:close|fix|resolve))"; ""; "i")
+    | gsub(between + "?" + $item; ""; "i");
+  $body | split("\n")
+  | map(. as $line | reduce $wanted[] as $n ($line; drop($n))
+        | if . == $line then . elif test("^[-*\\s]*$") then empty else sub("[ \\t]+$"; "") end)
+  | join("\n")
+  | reduce $wanted[] as $n (.; gsub(keyword + "\\s+#\($n)(?![0-9])"; ""; "i"))')
+
+if [ "$new" = "$body" ]; then
+  echo "Nothing to release: PR #$number does not close $list."
+  exit 0
+fi
+left=$(printf '%s' "$new" | closes | sed 's/^/#/' | paste -sd, - | sed 's/,/, /g')
+if [ -z "$left" ] && [ "$draft" = true ]; then
+  answer=$(call -X PATCH "$api/pulls/$number" -f body="$new" -f state=closed) || die "$answer"
+  echo "Released $list: draft PR #$number closed nothing more and is closed. The branch $branch is kept."
+elif [ -z "$left" ]; then
+  answer=$(call -X PATCH "$api/pulls/$number" -f body="$new") || die "$answer"
+  echo "Released $list: PR #$number is up for review and now closes nothing. Close it, or put Closes #N in its body."
+else
+  answer=$(call -X PATCH "$api/pulls/$number" -f body="$new") || die "$answer"
+  echo "Released $list: PR #$number still closes $left."
+fi
