@@ -1,0 +1,33 @@
+{
+  "project": "example/enzure",
+  "backend": "github",
+  "defaultBranch": "main",
+  "initiatives": [],
+  "moreInitiatives": 0,
+  "other": [
+    {
+      "kind": "bug",
+      "heading": "Bugs",
+      "open": 0,
+      "list": "gh issue list --label bug",
+      "items": []
+    },
+    {
+      "kind": "debt",
+      "heading": "Debt",
+      "open": 0,
+      "list": "gh issue list --label debt",
+      "items": []
+    }
+  ],
+  "claimsHeading": "Open pull requests",
+  "claims": [],
+  "here": {
+    "branch": "claude/pr-title-format-ci-eea340",
+    "claim": "PR #5",
+    "tentative": false,
+    "items": [],
+    "state": "merged",
+    "hint": "PR #5 merged. This worktree is a leftover: start new work in a new worktree off main."
+  }
+}
