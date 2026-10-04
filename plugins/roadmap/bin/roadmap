@@ -17,16 +17,27 @@ unavailable() {
   exit 0
 }
 
-bounded() {  # bounded <seconds> <command...>; macOS ships no timeout(1)
+bounded() {  # bounded <seconds> <command...>; macOS ships no timeout(1). Returns 143 when the time ran out.
   local seconds=$1; shift
   "$@" &
   local pid=$!
-  ( sleep "$seconds"; kill -TERM "$pid" 2>/dev/null ) >/dev/null 2>&1 &
+  # TERM first, so the command can stop what it started; KILL a second later for one that will not listen.
+  # The watchdog waits on its sleep, so that ending the watchdog ends the sleep with it.
+  (
+    trap 'kill "$nap" 2>/dev/null; wait "$nap" 2>/dev/null; exit 0' TERM
+    sleep "$seconds" & nap=$!
+    wait "$nap"
+    kill -TERM "$pid" 2>/dev/null
+    sleep 1 & nap=$!
+    wait "$nap"
+    kill -KILL "$pid" 2>/dev/null
+  ) >/dev/null 2>&1 &
   local watchdog=$!
-  wait "$pid"
+  wait "$pid" 2>/dev/null
   local status=$?
-  kill "$watchdog" 2>/dev/null
+  kill -TERM "$watchdog" 2>/dev/null
   wait "$watchdog" 2>/dev/null
+  if [ "$status" -eq 137 ]; then status=143; fi
   return "$status"
 }
 

@@ -132,4 +132,16 @@ fresh forked claude/v
 stub_gh "$SCRATCH/fork.raw.json"; export GH_STUB_BRANCH_PR="$SCRATCH/forked.pr.json"
 contains "a pull request from a fork does not hold an issue" "Claimed #171: PR #300" "$(claim 171 --type feat --title "$T")"
 contains "open pull requests are read to the end" "pulls -f state=open -f per_page=100 --paginate" "$(cat "$GH_STUB_LOG")"
+
+# A clone that does not have origin/<default>, and a branch that was pushed under its old name.
+fresh shallow claude/s
+git -C "$P" update-ref -d refs/remotes/origin/main
+GH_STUB_FAIL_ON='-X POST' claim 170 --type feat --title "$T" >/dev/null
+claim 170 --type feat --title "$T" >/dev/null
+check "a resumed claim without origin/main makes no second claim commit" 1 "$(git -C "$P" log --format=%s main..HEAD | grep -c 'chore: claim')"
+fresh pushed claude/old-name
+git -C "$P" push -q -u origin claude/old-name
+out=$(claim 170 --type feat --title "$T" --description 'link insurer')
+contains "a branch pushed under its old name: the old remote branch is named" "origin/claude/old-name is left as it is" "$out"
+check "…and the branch now follows its new name" origin/feat/170-link-insurer "$(git -C "$P" rev-parse --abbrev-ref '@{upstream}')"
 finish

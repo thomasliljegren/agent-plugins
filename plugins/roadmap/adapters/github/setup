@@ -78,15 +78,17 @@ settings="$root/.claude/settings.json"
 allow='["Bash(git add *)", "Bash(git commit *)", "Bash(git push *)", "Bash(gh pr ready *)"]'
 ask='["Bash(git push --force*)", "Bash(git push -f *)", "Bash(git push * --force*)", "Bash(git push * -f *)", "Bash(git push -f)", "Bash(git push * +*)"]'
 current='{}'
-if [ -f "$settings" ]; then current=$(cat "$settings"); fi
+if [ -s "$settings" ] && grep -q '[^[:space:]]' "$settings"; then current=$(cat "$settings"); fi
 if ! merged=$(jq --argjson allow "$allow" --argjson ask "$ask" '
     (.permissions.allow // []) as $a | (.permissions.ask // []) as $k | (.permissions.deny // []) as $d
     | .permissions.allow = $a + ($allow - $a - $k - $d)
-    | .permissions.ask = $k + ($ask - $k - $d)' <<<"$current" 2>/dev/null); then
+    | .permissions.ask = $k + ($ask - $k - $d - $a)' <<<"$current" 2>/dev/null); then
   echo ".claude/settings.json is not valid JSON; it is left as it is."
 else
   kept=$(jq -r --argjson allow "$allow" '[$allow[] as $rule | select(((.permissions.ask // []) + (.permissions.deny // [])) | any(. == $rule)) | $rule] | join(", ")' <<<"$current")
   [ -z "$kept" ] || echo "Left under ask or deny, where the project put them: $kept."
+  kept=$(jq -r --argjson ask "$ask" '[$ask[] as $rule | select((.permissions.allow // []) | any(. == $rule)) | $rule] | join(", ")' <<<"$current")
+  [ -z "$kept" ] || echo "Left under allow, where the project put them: $kept."
   if [ "$(jq -S . <<<"$current")" = "$(jq -S . <<<"$merged")" ]; then
     echo ".claude/settings.json has the permissions already."
   elif confirm "Add the agent permissions to .claude/settings.json (allow git add, commit, push and gh pr ready; ask on force push)?"; then

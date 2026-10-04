@@ -89,4 +89,20 @@ fake silent <<'EOF2'
 exit 0
 EOF2
 unavailable "an adapter that prints nothing" "the adapters/silent adapter printed nothing" "$(run)"
+
+# The time limit holds against an adapter that ignores TERM, and leaves nothing behind when the adapter is quick.
+fake stubborn <<'EOF2'
+#!/usr/bin/env bash
+trap "" TERM
+sleep 8
+EOF2
+start=$(date +%s)
+unavailable "an adapter that ignores TERM is killed" "the adapters/stubborn adapter did not answer within 1 seconds" "$(ROADMAP_TIMEOUT=1 run)"
+check "…within the hook's own limit" yes "$([ $(( $(date +%s) - start )) -le 5 ] && echo yes)"
+fake good <<EOF2
+#!/usr/bin/env bash
+cat "$DATA/busy.state.json"
+EOF2
+ROADMAP_TIMEOUT=77 run >/dev/null
+check "a quick adapter leaves no watchdog behind" "" "$(pgrep -f 'sleep 77' || true)"
 finish

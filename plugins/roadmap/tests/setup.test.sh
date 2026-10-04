@@ -68,4 +68,14 @@ rm "$W"
 printf '{"backend": "github", "github": {"types": ["feat", "a/b"]}}\n' >"$P/.roadmap.json"
 contains "a type that is not a plain word is refused" "a type is lowercase letters, digits and hyphens" "$(setup github --yes)"
 check "…and no workflow is written" no "$([ -e "$W" ] && echo yes || echo no)"
+
+# An empty settings file, and a project that allows a force push.
+printf '{"backend": "github"}\n' >"$P/.roadmap.json"
+: >"$S"
+setup --yes >/dev/null
+check "an empty settings file gets the permissions" 4 "$(jq '.permissions.allow | length' "$S")"
+printf '{"permissions": {"allow": ["Bash(git push --force*)"]}}\n' >"$S"
+out=$(setup --yes)
+check "a force push the project allows is not put under ask" false "$(jq '.permissions.ask | any(. == "Bash(git push --force*)")' "$S")"
+contains "…and that is reported" "Left under allow, where the project put them: Bash(git push --force*)." "$out"
 finish

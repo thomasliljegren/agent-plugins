@@ -75,7 +75,9 @@ git -C "$root" diff --cached --quiet || die "there are staged changes, and the c
 
 # 1. The branch is named after its work. Renaming happens before the first push: on GitHub a rename closes the pull request.
 pattern="^$type/$first-[a-z0-9]+(-[a-z0-9]+)*$"
+before=""
 if [[ ! "$branch" =~ $pattern ]]; then
+  if git -C "$root" rev-parse -q --verify "refs/remotes/origin/$branch" >/dev/null; then before=$branch; fi
   slugged=$(printf '%s' "$words" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//' | cut -d- -f1-5)
   [ -n "$slugged" ] || die "the title of #$first gives no words for a branch name: pass --description"
   target="$type/$first-$slugged"
@@ -85,7 +87,11 @@ fi
 
 # 2. A pull request needs a commit.
 message="chore: claim $list"
-if ! git -C "$root" log --format=%s "origin/$default..HEAD" 2>/dev/null | grep -Fxq "$message"; then
+# The branch's own commits, or the newest twenty where this clone does not have origin/<default>.
+own="origin/$default..HEAD"
+git -C "$root" rev-parse -q --verify "refs/remotes/origin/$default" >/dev/null || own="-n 20 HEAD"
+# shellcheck disable=SC2086
+if ! git -C "$root" log --format=%s $own 2>/dev/null | grep -Fxq "$message"; then
   git -C "$root" commit -q --allow-empty -m "$message" 2>"$err" || step "the commit '$message'" "$(tail -n 1 "$err")"
 fi
 
@@ -107,4 +113,5 @@ if [ "$has" != "$(printf '%s\n' "$wanted" | sort -n | paste -sd' ' -)" ] || [ "$
   die "PR #$number was opened, but it does not claim $list: its body closes ${has:-nothing} and it targets $base. Fix it by hand"
 fi
 echo "Claimed $list: PR #$number (draft) on $branch."
+[ -z "$before" ] || echo "This branch was pushed before as $before. origin/$before is left as it is: delete it when nothing needs it."
 jq -r '.html_url // empty' <<<"$answer"
