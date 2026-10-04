@@ -9,7 +9,14 @@ include "closes";
 def need($field): if . == null then error("the GitHub answer has no \($field)") else . end;
 
 # Titles and branch names are written by whoever can open an issue, and this text reaches every session.
-def safe: tostring | explode | map(if . < 32 or . == 127 then 32 else . end) | implode | .[:120];
+# Control characters, the line and paragraph separators and the bidirectional controls would let a title start a line of
+# its own or reorder what a reader sees; each becomes a space.
+def clean($length):
+  tostring | explode
+  | map(if . < 32 or (. >= 127 and . <= 159) or . == 8232 or . == 8233 or . == 8206 or . == 8207
+           or (. >= 8234 and . <= 8238) or (. >= 8294 and . <= 8297) then 32 else . end)
+  | implode | .[:$length];
+def safe: clean(120);
 
 def issues: map(select(.pull_request == null));
 def named($kind): $config.labels[$kind] // $kind;
@@ -22,7 +29,9 @@ def named($kind): $config.labels[$kind] // $kind;
 | (.bugs | need("bugs") | issues) as $bugs
 | (.debt | need("debt") | issues) as $debt
 # GitHub links and closes issues only for pull requests into the default branch.
-| def linked: if (.base.ref | need("base")) == $default then (.body | closes) else [] end;
+# A pull request from a fork is not a claim: anyone can open one.
+| def linked:
+    if (.base.ref | need("base")) == $default and (.head.repo.full_name // $project) == $project then (.body | closes) else [] end;
   ($open | map({id: "PR #\(.number | need("number"))", closes: linked})) as $links
 | ([$closed[] | select(.merged_at != null) | linked[]]) as $merged
 # Only the newest 100 closed pull requests are read. A slice closed before the oldest of them cannot be judged.

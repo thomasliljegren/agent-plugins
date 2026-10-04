@@ -107,4 +107,29 @@ check "…and the branch is still there" feat/170-link-insurer "$(git -C "$P" br
 body 'Closes #170' false
 contains "a pull request up for review is not closed" "is up for review and now closes nothing" "$(release 170)"
 check "…" "" "$(patched | grep state=closed)"
+
+# Review fixes: a list anywhere in the body, and pull requests from forks.
+fresh releasing2 feat/17-x
+body 'Summary of the work.
+
+Closes #17, closes #170'
+release 17 >/dev/null
+contains "a list in the middle of the body leaves no stray comma" "body=Summary of the work.
+
+closes #170" "$(patched)"
+body 'Closes #17 and closes #170'
+release 17 >/dev/null
+contains "…and no stray and" "body=closes #170" "$(patched)"
+body 'Done:
+- Closes #17
+- Closes #170'
+release 17 >/dev/null
+contains "a bullet that held only the keyword goes with it" "body=Done:
+- Closes #170" "$(patched)"
+jq '.openPrs += [{number: 205, draft: false, head: {ref: "patch-1", repo: {full_name: "stranger/enzure"}}, base: {ref: "main"}, updated_at: "2026-09-21T09:00:00Z", body: "Closes #171"}]' \
+  "$DATA_OPEN" >"$SCRATCH/fork.raw.json"
+fresh forked claude/v
+stub_gh "$SCRATCH/fork.raw.json"; export GH_STUB_BRANCH_PR="$SCRATCH/forked.pr.json"
+contains "a pull request from a fork does not hold an issue" "Claimed #171: PR #300" "$(claim 171 --type feat --title "$T")"
+contains "open pull requests are read to the end" "pulls -f state=open -f per_page=100 --paginate" "$(cat "$GH_STUB_LOG")"
 finish

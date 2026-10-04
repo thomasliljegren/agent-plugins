@@ -39,4 +39,9 @@ git -C "$P" remote set-url origin https://gitlab.com/example/enzure.git
 unavailable "an origin that is not GitHub" "origin (https://gitlab.com/example/enzure.git) is not a GitHub repository" "$(run)"
 git -C "$P" remote remove origin
 unavailable "a checkout without an origin" "this checkout has no origin remote" "$(run)"
+
+# Review fixes: every open pull request is read, not the first page.
+checkout "$SCRATCH/paged" feat/x; opt_in "$SCRATCH/paged"; stub_gh "$DATA/busy.raw.json"
+(cd "$SCRATCH/paged" && bash "$ROADMAP" >/dev/null)
+contains "open pull requests are read to the end" "state=open -f sort=updated -f direction=desc -f per_page=100 --paginate" "$(cat "$GH_STUB_LOG")"
 finish

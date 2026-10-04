@@ -56,10 +56,10 @@ if [ -n "$number" ]; then
 fi
 
 # Nobody else may hold any of the ids.
-answer=$(call -X GET "$api/pulls" -f state=open -f per_page=100) || die "$answer"
-taken=$(jq -r -L "$adapter" --arg default "$default" --argjson wanted "$(printf '%s\n' "$wanted" | jq -Rn '[inputs | tonumber]')" '
+answer=$(call -X GET "$api/pulls" -f state=open -f per_page=100 --paginate) || die "$answer"
+taken=$(jq -rs -L "$adapter" --arg default "$default" --arg slug "$slug" --argjson wanted "$(printf '%s\n' "$wanted" | jq -Rn '[inputs | tonumber]')" '
   include "closes";
-  [ .[] | select(.base.ref == $default) | .number as $pr | (.body | closes | map(select(. as $n | $wanted | any(. == $n))))
+  [ add[] | select(.base.ref == $default and (.head.repo.full_name // $slug) == $slug) | .number as $pr | (.body | closes | map(select(. as $n | $wanted | any(. == $n))))
     | select(length > 0) | "PR #\($pr) claims \(map("#\(.)") | join(", "))" ] | join("; ")' <<<"$answer")
 [ -z "$taken" ] || die "already claimed: $taken"
 

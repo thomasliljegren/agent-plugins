@@ -70,4 +70,9 @@ for fixture in busy leftover; do
   normalize $fixture $branch | same "$fixture.state.json" "$DATA/$fixture.state.json"
   check "$fixture.state.json holds the contract" "" "$(jq -r -f "$ROOT/scripts/contract.jq" "$DATA/$fixture.state.json")"
 done
+
+# Review fixes.
+mod() { jq "$1" "$DATA/busy.raw.json" | jq -L "$G" -f "$G/normalize.jq" --arg project example/enzure --arg branch main --argjson now 1 --argjson config '{}'; }
+check "a pull request from a fork is not a claim" '[]' "$(mod '.openPrs[0].head.repo = {full_name: "stranger/enzure"}' | jq -c '.initiatives[0].slices[2].claims')"
+check "the adapter cleans separators above U+007F too" '"a b c"' "$(mod '.bugs[0].title = "a b\u009bc"' | jq -c '.other[0].items[0].title')"
 finish

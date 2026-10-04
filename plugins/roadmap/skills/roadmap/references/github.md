@@ -41,7 +41,8 @@ roadmap claim 170 171 --type feat --title "feat(accounts): link an insurer"
 
 The adapter asks GitHub's REST API only, because a cloud session's GitHub proxy refuses GraphQL queries of its own. Two consequences:
 
-- A claim is read from the closing keywords in the pull request's body, for issues of the same repository. An issue linked by hand in the pull request's sidebar, or one in another repository, is not seen.
+- A claim is read from the closing keywords in the pull request's body, written as `Closes #N`. An issue linked by hand in the pull request's sidebar, one named by its URL or as `owner/repo#N`, or one in another repository, is not seen: GitHub closes it all the same, but the roadmap shows the branch as having no closing link.
+- A pull request from a fork is not a claim, since anyone can open one.
 - "Closed by hand, not by a merged PR" is judged against the 100 most recently updated closed pull requests. A slice closed before the oldest of them is not judged.
 
 In a cloud session the proxy also refuses `reprioritizeSubIssue` and other GraphQL of your own: ask the owner to move a slice, or do it from a local session. `gh issue list` and `gh pr view --json` are GraphQL too; `gh api repos/{owner}/{repo}/...` is the REST route.

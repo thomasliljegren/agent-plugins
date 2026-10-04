@@ -62,8 +62,8 @@ adapter_for() {  # a name under adapters/, or a path (absolute, or relative to t
 
 if [ "$mode" = setup ]; then
   [ -n "$root" ] || { echo "roadmap setup: $cwd is not inside a git checkout." >&2; exit 1; }
-  backend=${1:-github}
-  [ $# -gt 0 ] && shift
+  backend=github
+  case "${1:-}" in ""|--*) ;; *) backend=$1; shift ;; esac
   adapter=$(adapter_for "$backend")
   [ -x "$adapter/setup" ] || { echo "roadmap setup: the $backend adapter has no setup command ($adapter)." >&2; exit 1; }
   ROADMAP_ROOT=$root ROADMAP_BRANCH=$(git -C "$root" branch --show-current 2>/dev/null || true) ROADMAP_CONFIG='{}' exec "$adapter/setup" "$@"
@@ -111,6 +111,8 @@ if [ "$status" -ne 0 ]; then
   reason=$(tail -n 1 "$out.err" | tr -d '\000-\037' | cut -c 1-200)
   unavailable "the $backend adapter failed: ${reason:-exit status $status}"
 fi
+
+[ -s "$out" ] || unavailable "the $backend adapter printed nothing"
 
 # An adapter that could not answer says so itself, in the same one line.
 if [ "$(head -c 20 "$out")" = "ROADMAP UNAVAILABLE:" ]; then

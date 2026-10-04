@@ -43,7 +43,7 @@ settle() {  # wait for every get; the first failure ends the run with its reason
 pids=""; names=""
 get repo "$api"
 get initiatives "$api/issues" -f labels="$(named initiative)" -f state=open -f sort=created -f direction=asc -f per_page=100
-get openPrs "$api/pulls" -f state=open -f sort=updated -f direction=desc -f per_page=30
+get openPrs "$api/pulls" -f state=open -f sort=updated -f direction=desc -f per_page=100 --paginate
 get closedPrs "$api/pulls" -f state=closed -f sort=updated -f direction=desc -f per_page=100
 get bugs "$api/issues" -f labels="$(named bug)" -f state=open -f sort=created -f direction=asc -f per_page=100 --paginate
 get debt "$api/issues" -f labels="$(named debt)" -f state=open -f sort=created -f direction=asc -f per_page=100 --paginate
@@ -55,7 +55,7 @@ fi
 settle
 
 # --paginate prints one array per page.
-for list in bugs debt; do
+for list in openPrs bugs debt; do
   jq -s 'add // []' "$tmp/$list.json" >"$tmp/$list.all" 2>/dev/null || unavailable "GitHub's list of $list could not be read"
 done
 
@@ -71,7 +71,7 @@ subs=$(for number in $wanted; do jq --arg number "$number" '{($number): .}' "$tm
   || unavailable "GitHub's sub-issues could not be read"
 
 state=$(jq -n --slurpfile repo "$tmp/repo.json" --slurpfile initiatives "$tmp/initiatives.json" \
-    --slurpfile openPrs "$tmp/openPrs.json" --slurpfile closedPrs "$tmp/closedPrs.json" \
+    --slurpfile openPrs "$tmp/openPrs.all" --slurpfile closedPrs "$tmp/closedPrs.json" \
     --slurpfile bugs "$tmp/bugs.all" --slurpfile debt "$tmp/debt.all" --slurpfile branchPrs "$tmp/branchPrs.json" \
     --argjson subs "$subs" \
     '{repo: $repo[0], initiatives: $initiatives[0], subIssues: $subs, openPrs: $openPrs[0], closedPrs: $closedPrs[0],

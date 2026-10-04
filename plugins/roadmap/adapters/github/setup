@@ -58,9 +58,13 @@ for kind in initiative slice bug debt; do
   fi
 done
 
-# 3. The check that keeps the links the roadmap is derived from.
+# 3. The check that keeps the links the roadmap is derived from. The types go into a sed program and a regular
+# expression, and .roadmap.json is the repository's to write: only plain words pass.
 workflow="$root/.github/workflows/pr-title.yml"
-sed "s/__TYPES__/$(types)/g; s/__TYPE_LIST__/$(types | sed 's/|/, /g')/g" "$adapter/templates/pr-title.yml" >"$err.new"
+printf '%s' "$(types)" | grep -Eqx '[a-z][a-z0-9-]*(\|[a-z][a-z0-9-]*)*' \
+  || die "a type is lowercase letters, digits and hyphens; .roadmap.json lists something else under github.types"
+sed "s/__TYPES__/$(types)/g; s/__TYPE_LIST__/$(types | sed 's/|/, /g')/g" "$adapter/templates/pr-title.yml" >"$err.new" \
+  || die "the workflow template could not be filled in"
 if [ -f "$workflow" ] && cmp -s "$workflow" "$err.new"; then
   echo ".github/workflows/pr-title.yml is there already."
 elif [ -f "$workflow" ]; then

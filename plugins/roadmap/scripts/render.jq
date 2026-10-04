@@ -6,7 +6,14 @@
 def need($field): if . == null then error("the state has no \($field)") else . end;
 
 # Adapters clean this text already. It is cleaned again here because it reaches every session and an adapter can be the team's own.
-def safe: tostring | explode | map(if . < 32 or . == 127 then 32 else . end) | implode | .[:120];
+# Control characters, the line and paragraph separators and the bidirectional controls would let a title start a line of
+# its own or reorder what a reader sees; each becomes a space.
+def clean($length):
+  tostring | explode
+  | map(if . < 32 or (. >= 127 and . <= 159) or . == 8232 or . == 8233 or . == 8206 or . == 8207
+           or (. >= 8234 and . <= 8238) or (. >= 8294 and . <= 8297) then 32 else . end)
+  | implode | .[:$length];
+def safe: clean(120);
 
 def titled: "\(.id | need("id") | safe) \(.title | need("title") | safe)";
 def claimed_by: .claims | need("claims") | map(safe) | join(", ");
@@ -58,7 +65,7 @@ def claim:
 
 def this_branch:
   (.branch | need("branch") | safe) as $b
-  | (.hint // "" | tostring | .[:300]) as $hint
+  | (.hint // "" | clean(300)) as $hint
   | (.state | need("state")) as $state
   | if $state == "detached" then "THIS CHECKOUT: \($hint)"
     elif $state == "default-branch" then "THIS BRANCH: \($b). \($hint)"

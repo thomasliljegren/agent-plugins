@@ -61,4 +61,11 @@ rm "$W"; : >"$GH_STUB_LOG"
 setup github --yes >/dev/null
 contains "a configured label is the one created" "name=work item" "$(cat "$GH_STUB_LOG")"
 contains "configured types reach the workflow" "pattern='^(feat|fix)/" "$(cat "$W")"
+
+# Review fixes: the short form, and types that are not plain words.
+contains "setup --yes means the github backend" ".roadmap.json is there already." "$(setup --yes)"
+rm "$W"
+printf '{"backend": "github", "github": {"types": ["feat", "a/b"]}}\n' >"$P/.roadmap.json"
+contains "a type that is not a plain word is refused" "a type is lowercase letters, digits and hyphens" "$(setup github --yes)"
+check "…and no workflow is written" no "$([ -e "$W" ] && echo yes || echo no)"
 finish

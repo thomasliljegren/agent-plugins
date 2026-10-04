@@ -82,4 +82,11 @@ check "hooks.json registers SessionStart" 'bash "${CLAUDE_PLUGIN_ROOT}/bin/roadm
 check "the hook's limit is 10 seconds" 10 "$(jq -r '.hooks.SessionStart[0].hooks[0].timeout' "$H")"
 check "the hook command runs" "$(run)" "$(printf '{"cwd": "%s"}' "$P" | CLAUDE_PLUGIN_ROOT="$ROOT" bash -c "$(jq -r '.hooks.SessionStart[0].hooks[0].command' "$H")")"
 check "bin/roadmap is executable" yes "$([ -x "$ROADMAP" ] && echo yes)"
+
+# Review fixes.
+fake silent <<'EOF2'
+#!/usr/bin/env bash
+exit 0
+EOF2
+unavailable "an adapter that prints nothing" "the adapters/silent adapter printed nothing" "$(run)"
 finish
