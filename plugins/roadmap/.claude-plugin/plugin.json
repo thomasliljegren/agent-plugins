@@ -1,0 +1,10 @@
+{
+  "name": "roadmap",
+  "description": "Agents sharing work through the team's own tracker: every session starts from a live snapshot of what is done, claimed and next, and claims work where the others can see it. GitHub issues and pull requests today.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Thomas Liljegren",
+    "email": "thliljegren@gmail.com"
+  },
+  "keywords": ["roadmap", "issues", "pull-requests", "multi-agent", "hooks"]
+}

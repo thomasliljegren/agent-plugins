@@ -1,0 +1,131 @@
+#!/usr/bin/env bash
+# Live project status from the team's own tracker, asked on every run and stored nowhere.
+#   roadmap                     the snapshot for the checkout in the current directory
+#   roadmap --report            the same state as the Markdown report, every open slice listed
+#   roadmap --hook              the snapshot as a Claude Code SessionStart hook; silent in a project without .roadmap.json
+#   roadmap --state             the normalized state itself
+#   roadmap claim <ids...>      claim items (the adapter's options follow the ids)
+#   roadmap release <ids...>    withdraw a claim
+#   roadmap setup [backend]     prepare the tracker and the repository (default backend: github)
+# The status modes always exit 0: a session has to start even when the tracker cannot be reached, and it says so instead of guessing.
+set -u
+PATH="$PATH:/opt/homebrew/bin:/usr/local/bin"   # the desktop app's hooks do not always inherit the shell's PATH
+plugin=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+
+unavailable() {
+  echo "ROADMAP UNAVAILABLE: $1. Do not assume project status."
+  exit 0
+}
+
+bounded() {  # bounded <seconds> <command...>; macOS ships no timeout(1)
+  local seconds=$1; shift
+  "$@" &
+  local pid=$!
+  ( sleep "$seconds"; kill -TERM "$pid" 2>/dev/null ) >/dev/null 2>&1 &
+  local watchdog=$!
+  wait "$pid"
+  local status=$?
+  kill "$watchdog" 2>/dev/null
+  wait "$watchdog" 2>/dev/null
+  return "$status"
+}
+
+mode=snapshot
+case "${1:-}" in
+  "") ;;
+  --hook) mode=hook ;;
+  --report) mode=report ;;
+  --state) mode=state ;;
+  claim|release|setup) mode=$1; shift ;;
+  *) sed -n '2,10s/^# \{0,1\}//p' "${BASH_SOURCE[0]}" >&2; exit 2 ;;
+esac
+
+# Where is the session? A hook is told on stdin; without that, Claude Code's project directory, then the working directory.
+cwd=$PWD
+if [ "$mode" = hook ]; then
+  input=""
+  IFS= read -r -t 1 -d '' input || true
+  cwd=$(printf '%s' "$input" | jq -r '.cwd // empty' 2>/dev/null || true)
+  [ -n "$cwd" ] && [ -d "$cwd" ] || cwd=${CLAUDE_PROJECT_DIR:-$PWD}
+fi
+
+root=$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null) || root=""
+file="$root/.roadmap.json"
+
+adapter_for() {  # a name under adapters/, or a path (absolute, or relative to the repository) to a team's own
+  case "$1" in
+    /*) echo "$1" ;;
+    */*|.*) echo "$root/$1" ;;
+    *) echo "$plugin/adapters/$1" ;;
+  esac
+}
+
+if [ "$mode" = setup ]; then
+  [ -n "$root" ] || { echo "roadmap setup: $cwd is not inside a git checkout." >&2; exit 1; }
+  backend=${1:-github}
+  [ $# -gt 0 ] && shift
+  adapter=$(adapter_for "$backend")
+  [ -x "$adapter/setup" ] || { echo "roadmap setup: the $backend adapter has no setup command ($adapter)." >&2; exit 1; }
+  ROADMAP_ROOT=$root ROADMAP_BRANCH=$(git -C "$root" branch --show-current 2>/dev/null || true) ROADMAP_CONFIG='{}' exec "$adapter/setup" "$@"
+fi
+
+# A project that has not opted in is left alone.
+if [ -z "$root" ] || [ ! -f "$file" ]; then
+  [ "$mode" = hook ] && exit 0
+  echo "This project has no .roadmap.json at its repository root, so it has not opted in. Run: roadmap setup" >&2
+  exit 1
+fi
+
+fail() {  # the status modes report and exit 0; claim and release fail
+  case "$mode" in
+    claim|release) echo "roadmap $mode: $1." >&2; exit 1 ;;
+    *) unavailable "$1" ;;
+  esac
+}
+
+command -v jq >/dev/null 2>&1 || fail "jq is not installed"
+backend=$(jq -r '.backend // empty' "$file" 2>/dev/null) || fail ".roadmap.json is not valid JSON"
+[ -n "$backend" ] || fail ".roadmap.json names no backend"
+adapter=$(adapter_for "$backend")
+section=$(basename "$backend")
+ROADMAP_CONFIG=$(jq -c --arg section "$section" '.[$section] // {}' "$file")
+ROADMAP_ROOT=$root
+ROADMAP_BRANCH=$(git -C "$root" branch --show-current 2>/dev/null || true)
+ROADMAP_NOW=${ROADMAP_NOW:-$(date -u +%s)}
+export ROADMAP_CONFIG ROADMAP_ROOT ROADMAP_BRANCH ROADMAP_NOW
+
+case "$mode" in
+  claim|release)
+    [ -x "$adapter/$mode" ] || fail "the $backend adapter has no $mode command ($adapter)"
+    exec "$adapter/$mode" "$@" ;;
+esac
+
+[ -x "$adapter/state" ] || unavailable "the $backend adapter has no state command ($adapter)"
+out=$(mktemp "${TMPDIR:-/tmp}/roadmap.XXXXXX") || unavailable "cannot create a temporary file"
+trap 'rm -f "$out" "$out.err"' EXIT
+limit=${ROADMAP_TIMEOUT:-5}
+bounded "$limit" "$adapter/state" >"$out" 2>"$out.err"
+status=$?
+if [ "$status" -eq 143 ]; then unavailable "the $backend adapter did not answer within $limit seconds"; fi
+if [ "$status" -ne 0 ]; then
+  reason=$(tail -n 1 "$out.err" | tr -d '\000-\037' | cut -c 1-200)
+  unavailable "the $backend adapter failed: ${reason:-exit status $status}"
+fi
+
+# An adapter that could not answer says so itself, in the same one line.
+if [ "$(head -c 20 "$out")" = "ROADMAP UNAVAILABLE:" ]; then
+  head -n 1 "$out" | tr -d '\000-\011\013-\037' | cut -c 1-400
+  exit 0
+fi
+
+if [ "$mode" = state ]; then
+  jq . "$out" 2>/dev/null || unavailable "the $backend adapter printed something that is not JSON"
+  exit 0
+fi
+
+format=snapshot
+[ "$mode" = report ] && format=report
+rules=$(jq -r '.rules // ""' "$file")
+text=$(jq -r -f "$plugin/scripts/render.jq" --arg format "$format" --argjson now "$ROADMAP_NOW" --arg rules "$rules" "$out" 2>&1) \
+  || unavailable "the answer of the $backend adapter could not be read ($(printf '%s' "$text" | head -n 1 | cut -c 1-200))"
+printf '%s\n' "$text"
