@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+# roadmap claim <ids...> --type <type> --title "<type(scope): title>" [--description <words>]
+# Makes the claim the others can see: a draft pull request that closes the ids, on a branch named after the first of them.
+# Safe to repeat: every step looks before it acts, so a claim that stopped partway is finished by the same command.
+set -u
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+
+die() { echo "roadmap claim: $1." >&2; exit 1; }
+step() { echo "roadmap claim: $1 failed: $2. Fix that and run the same command again; it resumes from this step." >&2; exit 1; }
+
+ids=""; type=""; title=""; description=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --type|--title|--description)
+      [ $# -ge 2 ] || die "$1 needs a value"
+      case "$1" in --type) type=$2 ;; --title) title=$2 ;; --description) description=$2 ;; esac
+      shift 2 ;;
+    --*) die "unknown option $1" ;;
+    *) ids="$ids $1"; shift ;;
+  esac
+done
+[ -n "$ids" ] || die 'usage: roadmap claim <ids...> --type <type> --title "<type(scope): title>" [--description <words>]'
+# shellcheck disable=SC2086
+wanted=$(numbers $ids) || die "an id is an issue number, with or without #"
+wanted=$(printf '%s\n' "$wanted" | awk '!seen[$0]++')
+first=$(printf '%s\n' "$wanted" | head -n 1)
+list=$(printf '%s\n' "$wanted" | sed 's/^/#/' | paste -sd, - | sed 's/,/, /g')
+
+printf '%s' "$type" | grep -Eqx "$(types)" || die "--type is one of: $(types | tr '|' ' ')"
+pattern="^$type\\([a-z0-9-]+\\): .*[^ ]$"
+[[ "$title" =~ $pattern ]] || die "--title must read '$type(scope): title', for example '$type(quoting): request a quote'"
+
+slug=$(github_repo) || die "$slug"
+api="repos/$slug"
+err=$(mktemp "${TMPDIR:-/tmp}/roadmap.XXXXXX") || die "cannot create a temporary file"
+trap 'rm -f "$err"' EXIT
+call() { gh api "$@" 2>"$err" || { gh_reason "$err" $?; return 1; }; }   # prints the answer, or the reason and returns 1
+
+branch=$(git -C "$root" branch --show-current 2>/dev/null)
+[ -n "$branch" ] || die "this checkout is on a detached HEAD: check out a branch first"
+answer=$(call -X GET "$api") || die "$answer"
+default=$(jq -r '.default_branch // empty' <<<"$answer")
+[ -n "$default" ] || die "GitHub did not name the default branch"
+[ "$branch" != "$default" ] || die "this is $default. Work happens on a branch off $default in its own worktree"
+
+# This branch's own pull request: the same ids means the claim is already made.
+answer=$(call -X GET "$api/pulls" -f head="${slug%%/*}:$branch" -f state=open -f per_page=1) || die "$answer"
+number=$(jq -r '.[0].number // empty' <<<"$answer")
+if [ -n "$number" ]; then
+  has=$(jq -r '.[0].body // ""' <<<"$answer" | closes | sort -n | paste -sd' ' -)
+  if [ "$has" = "$(printf '%s\n' "$wanted" | sort -n | paste -sd' ' -)" ]; then
+    echo "Already claimed: PR #$number on $branch closes $(printf '%s\n' "$has" | tr ' ' '\n' | sed 's/^/#/' | paste -sd, - | sed 's/,/, /g')."
+    exit 0
+  fi
+  die "this branch already has PR #$number, which closes ${has:-nothing}. Claim $list from a branch of its own, or change what PR #$number closes"
+fi
+
+# Nobody else may hold any of the ids.
+answer=$(call -X GET "$api/pulls" -f state=open -f per_page=100) || die "$answer"
+taken=$(jq -r -L "$adapter" --arg default "$default" --argjson wanted "$(printf '%s\n' "$wanted" | jq -Rn '[inputs | tonumber]')" '
+  include "closes";
+  [ .[] | select(.base.ref == $default) | .number as $pr | (.body | closes | map(select(. as $n | $wanted | any(. == $n))))
+    | select(length > 0) | "PR #\($pr) claims \(map("#\(.)") | join(", "))" ] | join("; ")' <<<"$answer")
+[ -z "$taken" ] || die "already claimed: $taken"
+
+# Every id is an open issue of this repository.
+words=$description
+for n in $wanted; do
+  answer=$(call -X GET "$api/issues/$n") || die "#$n: $answer"
+  [ "$(jq -r 'if .pull_request != null then "pull" else .state end' <<<"$answer")" = open ] || die "#$n is not an open issue"
+  if [ -z "$words" ]; then words=$(jq -r .title <<<"$answer"); fi
+done
+
+git -C "$root" diff --cached --quiet || die "there are staged changes, and the claim commit must be empty. Commit or unstage them first"
+
+# 1. The branch is named after its work. Renaming happens before the first push: on GitHub a rename closes the pull request.
+pattern="^$type/$first-[a-z0-9]+(-[a-z0-9]+)*$"
+if [[ ! "$branch" =~ $pattern ]]; then
+  slugged=$(printf '%s' "$words" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//' | cut -d- -f1-5)
+  [ -n "$slugged" ] || die "the title of #$first gives no words for a branch name: pass --description"
+  target="$type/$first-$slugged"
+  git -C "$root" branch -m "$target" 2>"$err" || step "renaming the branch to $target" "$(tail -n 1 "$err")"
+  branch=$target
+fi
+
+# 2. A pull request needs a commit.
+message="chore: claim $list"
+if ! git -C "$root" log --format=%s "origin/$default..HEAD" 2>/dev/null | grep -Fxq "$message"; then
+  git -C "$root" commit -q --allow-empty -m "$message" 2>"$err" || step "the commit '$message'" "$(tail -n 1 "$err")"
+fi
+
+# 3. Pushing again sends nothing.
+git -C "$root" push -q -u origin HEAD 2>"$err" || step "pushing $branch" "$(tail -n 1 "$err")"
+
+# 4. The draft pull request, one closing keyword per issue.
+body=$(printf '%s\n' "$wanted" | sed 's/^/Closes #/')
+answer=$(call -X POST "$api/pulls" -f title="$title" -f head="$branch" -f base="$default" -f body="$body" -F draft=true) \
+  || step "opening the draft pull request" "$answer"
+number=$(jq -r '.number // empty' <<<"$answer")
+[ -n "$number" ] || step "opening the draft pull request" "GitHub's answer names no pull request"
+
+# 5. Read it back: the roadmap is derived from these links, so a claim that does not show is not a claim.
+answer=$(call -X GET "$api/pulls/$number") || die "PR #$number was opened, but it could not be read back: $answer"
+has=$(jq -r '.body // ""' <<<"$answer" | closes | sort -n | paste -sd' ' -)
+base=$(jq -r '.base.ref // ""' <<<"$answer")
+if [ "$has" != "$(printf '%s\n' "$wanted" | sort -n | paste -sd' ' -)" ] || [ "$base" != "$default" ]; then
+  die "PR #$number was opened, but it does not claim $list: its body closes ${has:-nothing} and it targets $base. Fix it by hand"
+fi
+echo "Claimed $list: PR #$number (draft) on $branch."
+jq -r '.html_url // empty' <<<"$answer"
