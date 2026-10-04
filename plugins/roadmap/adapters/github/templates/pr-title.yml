@@ -1,0 +1,76 @@
+name: PR title
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize, ready_for_review]
+
+# Naming any permission sets the rest to none; reading the closing links of a private repository needs all three.
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+
+# Only the latest title and body count.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check-title:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check title format
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          pattern='^(__TYPES__)\([a-z0-9-]+\): .*[^ ]$'
+          if [[ ! "$TITLE" =~ $pattern ]]; then
+            echo "::error title=PR title::'$TITLE' does not match 'type(scope): title', e.g. 'feat(quoting): request a quote'. Types: __TYPE_LIST__."
+            exit 1
+          fi
+
+      # A branch is named after its work (the roadmap skill, Claim before working).
+      - name: Check branch name
+        if: ${{ !cancelled() }}
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+          NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          # Renaming a branch on GitHub closes its pull request, so a wrong name costs a new pull request.
+          rename="git branch -m <name> && git push -u origin HEAD && gh pr create, then gh pr close $NUMBER --delete-branch"
+          pattern='^(__TYPES__)/[0-9]+-[a-z0-9]+(-[a-z0-9]+)*$'
+          if [[ ! "$BRANCH" =~ $pattern ]]; then
+            echo "::error title=Branch name::'$BRANCH' does not match '<type>/<issue>-<description>', e.g. 'feat/170-link-insurer'. Types: __TYPE_LIST__; the issue is the first one the pull request closes; the description is lowercase words joined by hyphens. Move the work to a branch with the right name: $rename"
+            exit 1
+          fi
+          type=${BRANCH%%/*}
+          if [[ "$TITLE" != "$type("* ]]; then
+            echo "::error title=Branch name::The branch '$BRANCH' says '$type' and the title '$TITLE' says another type. Change the title, or move the work to a branch with the right name: $rename"
+            exit 1
+          fi
+          echo "'$BRANCH' matches the title's type."
+
+      # The roadmap is derived from these links (the roadmap skill). A ruleset that requires this job makes a missing link block the merge.
+      - name: Check that the pull request closes an issue
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          NUMBER: ${{ github.event.pull_request.number }}
+          BASE: ${{ github.event.pull_request.base.ref }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          if [[ "$BASE" != "$DEFAULT_BRANCH" ]]; then
+            echo "::error title=PR issue::This pull request targets '$BASE'. GitHub links and closes issues only for pull requests into '$DEFAULT_BRANCH', so the roadmap cannot see this one: gh pr edit $NUMBER --base $DEFAULT_BRANCH"
+            exit 1
+          fi
+          query='query($owner: String!, $name: String!, $number: Int!) { repository(owner: $owner, name: $name) { pullRequest(number: $number) { closingIssuesReferences(first: 10) { nodes { number } } } } }'
+          issues=$(gh api graphql -f owner="${REPO%%/*}" -f name="${REPO#*/}" -F number="$NUMBER" -f query="$query" \
+            --jq '[.data.repository.pullRequest.closingIssuesReferences.nodes[].number | "#\(.)"] | join(", ")')
+          if [[ -z "$issues" ]]; then
+            echo "::error title=PR issue::This pull request closes no issue. Put 'Closes #N' in its body, one keyword per issue ('Closes #12, closes #13'). 'roadmap' lists the open issues; file a missing one with gh issue create."
+            exit 1
+          fi
+          echo "Closes $issues."
