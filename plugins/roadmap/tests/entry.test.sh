@@ -6,7 +6,7 @@ P="$SCRATCH/project"
 checkout "$P" feat/170-link-insurer
 
 # fake NAME: an adapter of the project's own under adapters/NAME, whose state command is the script on stdin
-fake() { mkdir -p "$P/adapters/$1"; cat >"$P/adapters/$1/state"; chmod +x "$P/adapters/$1/state"; opt_in "$P" "{\"backend\": \"adapters/$1\", \"$1\": {\"labels\": {\"slice\": \"s\"}}}"; }
+fake() { mkdir -p "$P/adapters/$1"; cat >"$P/adapters/$1/state"; chmod +x "$P/adapters/$1/state"; opt_in "$P" "{\"backend\": \"adapters/$1\", \"practices\": [], \"$1\": {\"labels\": {\"slice\": \"s\"}}}"; }
 run() { (cd "$P" && bash "$ROADMAP" "$@" 2>&1); }
 hook() { printf '{"cwd": "%s"}' "${1:-$P}" | bash "$ROADMAP" --hook 2>&1; }
 
@@ -27,6 +27,16 @@ check "--state prints the state" '"example/enzure"' "$(run --state | jq -c .proj
 contains "--report prints the report" "# Roadmap" "$(run --report)"
 opt_in "$P" '{"backend": "adapters/good", "rules": "docs/WORKING.md"}'
 contains "the rules file is named" "The rules are in the roadmap skill and in docs/WORKING.md." "$(run)"
+practised() { opt_in "$P" "{\"backend\": \"adapters/good\", \"practices\": $1}"; run | sed -n 2p; }
+opt_in "$P" '{"backend": "adapters/good"}'
+contains "without the key, three practices" "Practices here: findings, ready, stacking (pages of the roadmap skill)." "$(run | sed -n 2p)"
+contains "a named list, in its order" "Practices here: merge, ready (pages of the roadmap skill)." "$(practised '["merge", "ready"]')"
+check "an empty list: no sentence" "" "$(practised '[]' | grep 'Practices here')"
+contains "a name without a page is said" "Practices here: findings (pages of the roadmap skill); unknown: mrege." "$(practised '["findings", "mrege"]')"
+contains "a member that is no list is said too" 'Practices here: none; unknown: "merge".' "$(practised '"merge"')"
+contains "a name is never a path" "Practices here: none; unknown: ../../../README." "$(practised '["../../../README"]')"
+check "the report carries no such sentence" "" "$(run --report | grep 'Practices here')"
+opt_in "$P" '{"backend": "adapters/good", "practices": []}'
 check "an unknown option is a usage error" 2 "$(run --nope >/dev/null; echo $?)"
 
 fake env <<'EOF2'

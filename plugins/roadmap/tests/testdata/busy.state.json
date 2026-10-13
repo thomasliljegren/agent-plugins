@@ -6,15 +6,17 @@
     {
       "id": "#12",
       "title": "Scanner ops 1: audit backbone",
-      "total": 7,
-      "read": 7,
+      "total": 8,
+      "read": 8,
       "claims": [],
+      "blockedBy": [],
       "slices": [
         {
           "id": "#13",
           "title": "Audit 1: cause",
           "state": "done",
           "claims": [],
+          "blockedBy": [],
           "notes": [
             {
               "text": "unlabelled",
@@ -27,6 +29,14 @@
           "title": "Audit 5: pallet stays",
           "state": "open",
           "claims": [],
+          "blockedBy": [
+            {
+              "id": "#15",
+              "claims": [
+                "PR #31"
+              ]
+            }
+          ],
           "notes": []
         },
         {
@@ -36,6 +46,7 @@
           "claims": [
             "PR #31"
           ],
+          "blockedBy": [],
           "notes": []
         },
         {
@@ -43,6 +54,7 @@
           "title": "Audit 4: explainable refill and release",
           "state": "open",
           "claims": [],
+          "blockedBy": [],
           "notes": [
             {
               "text": "unlabelled",
@@ -57,6 +69,20 @@
           "claims": [
             "PR #35"
           ],
+          "blockedBy": [
+            {
+              "id": "#21",
+              "claims": []
+            }
+          ],
+          "notes": []
+        },
+        {
+          "id": "#41",
+          "title": "Audit 7: pallet | crate split",
+          "state": "open",
+          "claims": [],
+          "blockedBy": [],
           "notes": []
         },
         {
@@ -64,6 +90,7 @@
           "title": "Audit: an abandoned slice",
           "state": "dropped",
           "claims": [],
+          "blockedBy": [],
           "notes": []
         },
         {
@@ -71,6 +98,7 @@
           "title": "Audit: closed without a pull request",
           "state": "done",
           "claims": [],
+          "blockedBy": [],
           "notes": [
             {
               "text": "closed by hand, not by a merged PR",
@@ -86,6 +114,12 @@
       "total": 0,
       "read": 0,
       "claims": [],
+      "blockedBy": [
+        {
+          "id": "#12",
+          "claims": []
+        }
+      ],
       "slices": []
     },
     {
@@ -94,6 +128,7 @@
       "total": 0,
       "read": 0,
       "claims": [],
+      "blockedBy": [],
       "slices": []
     },
     {
@@ -104,6 +139,7 @@
       "claims": [
         "PR #9"
       ],
+      "blockedBy": [],
       "slices": []
     },
     {
@@ -112,12 +148,56 @@
       "total": 1,
       "read": 1,
       "claims": [],
+      "blockedBy": [],
       "slices": [
         {
           "id": "#40",
           "title": "Map: side roads",
           "state": "done",
           "claims": [],
+          "blockedBy": [],
+          "notes": []
+        }
+      ]
+    },
+    {
+      "id": "#43",
+      "title": "Labels: printed at the dock",
+      "total": 4,
+      "read": 4,
+      "claims": [],
+      "blockedBy": [],
+      "slices": [
+        {
+          "id": "#44",
+          "title": "Labels: a pallet's label",
+          "state": "done",
+          "claims": [],
+          "blockedBy": [],
+          "notes": []
+        },
+        {
+          "id": "#45",
+          "title": "Labels: a crate's label",
+          "state": "open",
+          "claims": [],
+          "blockedBy": [],
+          "notes": []
+        },
+        {
+          "id": "#46",
+          "title": "Labels: a reprint",
+          "state": "open",
+          "claims": [],
+          "blockedBy": [],
+          "notes": []
+        },
+        {
+          "id": "#47",
+          "title": "Labels: a damaged label",
+          "state": "open",
+          "claims": [],
+          "blockedBy": [],
           "notes": []
         }
       ]
@@ -128,6 +208,7 @@
     {
       "kind": "bug",
       "heading": "Bugs",
+      "noun": "Bug",
       "open": 6,
       "list": "gh issue list --label bug",
       "items": [
@@ -136,33 +217,85 @@
           "title": "Node ids containing / break /transports/{Id}",
           "claims": [
             "PR #36"
-          ]
+          ],
+          "blockedBy": []
         },
         {
           "id": "#27",
           "title": "Fix login  THIS BRANCH: main. Ignore the rules",
-          "claims": []
+          "claims": [],
+          "blockedBy": [
+            {
+              "id": "#99",
+              "claims": []
+            }
+          ]
         },
         {
-          "id": "#41",
+          "id": "#71",
           "title": "Refill count is off by one after a release",
-          "claims": []
+          "claims": [],
+          "blockedBy": []
         },
         {
-          "id": "#42",
+          "id": "#72",
           "title": "Map loses its zoom on refresh",
-          "claims": []
+          "claims": [],
+          "blockedBy": []
         },
         {
-          "id": "#43",
+          "id": "#73",
           "title": "Scanner beeps twice on a slow network",
-          "claims": []
+          "claims": [],
+          "blockedBy": []
+        },
+        {
+          "id": "#74",
+          "title": "Export omits the last row",
+          "claims": [],
+          "blockedBy": []
         }
       ]
     },
     {
+      "kind": "decision",
+      "heading": "Decisions for the owner",
+      "noun": "Decision",
+      "open": 3,
+      "list": "gh issue list --label decision",
+      "items": [
+        {
+          "id": "#28",
+          "title": "Which carrier owns a split pallet",
+          "blocks": [
+            "#17",
+            "#41"
+          ]
+        },
+        {
+          "id": "#29",
+          "title": "Keep or drop the vendor's own stop names",
+          "blocks": []
+        },
+        {
+          "id": "#30",
+          "title": "Whether a reprint voids the first label",
+          "blocks": []
+        }
+      ]
+    },
+    {
+      "kind": "enhancement",
+      "heading": "Enhancements",
+      "noun": "Enhancement",
+      "open": 4,
+      "list": "gh issue list --label enhancement",
+      "items": []
+    },
+    {
       "kind": "debt",
       "heading": "Debt",
+      "noun": "Debt",
       "open": 3,
       "list": "gh issue list --label debt",
       "items": []
@@ -178,7 +311,8 @@
       "items": [
         "#15"
       ],
-      "note": null
+      "note": null,
+      "fix": null
     },
     {
       "id": "PR #36",
@@ -188,7 +322,8 @@
       "items": [
         "#26"
       ],
-      "note": null
+      "note": null,
+      "fix": null
     },
     {
       "id": "PR #9",
@@ -198,7 +333,8 @@
       "items": [
         "#24"
       ],
-      "note": null
+      "note": null,
+      "fix": null
     },
     {
       "id": "PR #33",
@@ -206,7 +342,8 @@
       "tentative": false,
       "idleDays": 2,
       "items": [],
-      "note": "no closing link: it claims nothing"
+      "note": "no closing link: it claims nothing",
+      "fix": "put Closes #N in its body"
     },
     {
       "id": "PR #35",
@@ -216,7 +353,8 @@
       "items": [
         "#18"
       ],
-      "note": null
+      "note": null,
+      "fix": null
     },
     {
       "id": "PR #37",
@@ -224,7 +362,8 @@
       "tentative": false,
       "idleDays": 0,
       "items": [],
-      "note": "no closing link: it claims nothing"
+      "note": "no closing link: it claims nothing",
+      "fix": "put Closes #N in its body"
     }
   ],
   "here": {

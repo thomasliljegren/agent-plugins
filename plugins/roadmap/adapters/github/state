@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Prints the normalized state of the adapter contract (skills/roadmap/references/adapter-contract.md) for a GitHub repository.
-# REST only: a cloud session's GitHub proxy refuses GraphQL queries of its own.
+# REST only, in three rounds: a cloud session's GitHub proxy refuses GraphQL queries of its own.
 # Never fails the session: when it cannot answer it prints the ROADMAP UNAVAILABLE line and exits 0.
 set -u
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -19,7 +19,7 @@ now=${ROADMAP_NOW:-$(date -u +%s)}
 tmp=$(mktemp -d "${TMPDIR:-/tmp}/roadmap.XXXXXX") || unavailable "cannot create a temporary directory"
 trap 'rm -rf "$tmp"' EXIT
 trap 'kill $(jobs -p) 2>/dev/null; exit 143' TERM   # the entry point's time limit: take the gh calls along
-mkdir "$tmp/subs"
+mkdir "$tmp/subs" "$tmp/blockedBy" "$tmp/blocking"
 
 get() {  # get NAME ARGS...: one REST GET into $tmp/NAME.json, in the background
   local name=$1; shift
@@ -40,13 +40,19 @@ settle() {  # wait for every get; the first failure ends the run with its reason
   [ -z "$failed" ] || unavailable "$(gh_reason "$tmp/$failed.err" "$code")"
 }
 
+labelled() {  # labelled NAME KIND: every open issue with the label that means KIND
+  get "$1" "$api/issues" -f labels="$(named "$2")" -f state=open -f sort=created -f direction=asc -f per_page=100 --paginate
+}
+
 pids=""; names=""
 get repo "$api"
 get initiatives "$api/issues" -f labels="$(named initiative)" -f state=open -f sort=created -f direction=asc -f per_page=100
 get openPrs "$api/pulls" -f state=open -f sort=updated -f direction=desc -f per_page=100 --paginate
 get closedPrs "$api/pulls" -f state=closed -f sort=updated -f direction=desc -f per_page=100
-get bugs "$api/issues" -f labels="$(named bug)" -f state=open -f sort=created -f direction=asc -f per_page=100 --paginate
-get debt "$api/issues" -f labels="$(named debt)" -f state=open -f sort=created -f direction=asc -f per_page=100 --paginate
+labelled bugs bug
+labelled decisions decision
+labelled enhancements enhancement
+labelled debt debt
 if [ -n "$branch" ]; then
   get branchPrs "$api/pulls" -f head="${slug%%/*}:$branch" -f state=all -f sort=created -f direction=desc -f per_page=1
 else
@@ -55,27 +61,56 @@ fi
 settle
 
 # --paginate prints one array per page.
-for list in openPrs bugs debt; do
+for list in openPrs bugs decisions enhancements debt; do
   jq -s 'add // []' "$tmp/$list.json" >"$tmp/$list.all" 2>/dev/null || unavailable "GitHub's list of $list could not be read"
 done
 
 # Sub-issues come back in the order set on the parent, and that is the order of work.
-wanted=$(jq -r 'map(select(.pull_request == null)) | .[:20][] | select(.sub_issues_summary.total > 0) | .number' "$tmp/initiatives.json" 2>/dev/null) \
+issues='map(select(.pull_request == null))'
+wanted=$(jq -r "$issues | .[:20][] | select(.sub_issues_summary.total > 0) | .number" "$tmp/initiatives.json" 2>/dev/null) \
   || unavailable "GitHub's list of initiatives could not be read"
-for number in $wanted; do
-  get "subs/$number" "$api/issues/$number/sub_issues" -f per_page=50
-done
+# GitHub counts an issue's open blockers in its summary, so only an issue that has one costs a request.
+waits='select((.issue_dependencies_summary.blocked_by // 0) > 0) | .number'
+blocked=$( { jq -r "$issues | .[:20][] | $waits" "$tmp/initiatives.json" && jq -r "$issues | .[:10][] | $waits" "$tmp/bugs.all"; } 2>/dev/null ) \
+  || unavailable "GitHub's dependency counts could not be read"
+holding=$(jq -r "$issues | .[:10][] | select((.issue_dependencies_summary.blocking // 0) > 0) | .number" "$tmp/decisions.all" 2>/dev/null) \
+  || unavailable "GitHub's list of decisions could not be read"
+for number in $wanted; do get "subs/$number" "$api/issues/$number/sub_issues" -f per_page=50; done
+for number in $blocked; do get "blockedBy/$number" "$api/issues/$number/dependencies/blocked_by" -f per_page=100; done
+for number in $holding; do get "blocking/$number" "$api/issues/$number/dependencies/blocking" -f per_page=100; done
 settle
 
-subs=$(for number in $wanted; do jq --arg number "$number" '{($number): .}' "$tmp/subs/$number.json"; done | jq -s 'add // {}') \
+# A sub-issue's blockers can be asked for only once the sub-issues are known. A closed one waits for nothing.
+later=$(for number in $wanted; do jq -r ".[] | select(.state == \"open\") | $waits" "$tmp/subs/$number.json" || exit 1; done 2>/dev/null) \
   || unavailable "GitHub's sub-issues could not be read"
+# Twenty lists keep the third round well inside the time limit. A blocked slice beyond them is still blocked, and
+# normalize.jq says that its blockers were not read.
+later=$(printf '%s\n' $later | head -n 20)
+for number in $later; do get "blockedBy/$number" "$api/issues/$number/dependencies/blocked_by" -f per_page=100; done
+settle
+
+# gathered DIR NUMBERS...: writes $tmp/DIR.all, {"<number>": GitHub's answer for it}. An answer that is no list fails:
+# a gateway's page read as "no blockers" would print a roadmap with nothing blocked. Into a file, since the answers
+# together can be larger than a command line carries.
+gathered() {
+  local dir=$1 number; shift
+  for number in "$@"; do
+    jq -c --arg number "$number" 'if type == "array" then {($number): .} else error("not a list") end' "$tmp/$dir/$number.json" || return 1
+  done >"$tmp/$dir.parts" 2>/dev/null
+  jq -s 'add // {}' "$tmp/$dir.parts" >"$tmp/$dir.all" 2>/dev/null
+}
+gathered subs $wanted || unavailable "GitHub's sub-issues could not be read"
+gathered blockedBy $blocked $later || unavailable "GitHub's blockers could not be read"
+gathered blocking $holding || unavailable "GitHub's answer on what the decisions block could not be read"
 
 state=$(jq -n --slurpfile repo "$tmp/repo.json" --slurpfile initiatives "$tmp/initiatives.json" \
     --slurpfile openPrs "$tmp/openPrs.all" --slurpfile closedPrs "$tmp/closedPrs.json" \
-    --slurpfile bugs "$tmp/bugs.all" --slurpfile debt "$tmp/debt.all" --slurpfile branchPrs "$tmp/branchPrs.json" \
-    --argjson subs "$subs" \
-    '{repo: $repo[0], initiatives: $initiatives[0], subIssues: $subs, openPrs: $openPrs[0], closedPrs: $closedPrs[0],
-      bugs: $bugs[0], debt: $debt[0], branchPrs: $branchPrs[0]}' \
+    --slurpfile bugs "$tmp/bugs.all" --slurpfile decisions "$tmp/decisions.all" --slurpfile enhancements "$tmp/enhancements.all" \
+    --slurpfile debt "$tmp/debt.all" --slurpfile branchPrs "$tmp/branchPrs.json" \
+    --slurpfile subs "$tmp/subs.all" --slurpfile blockers "$tmp/blockedBy.all" --slurpfile blocking "$tmp/blocking.all" \
+    '{repo: $repo[0], initiatives: $initiatives[0], subIssues: $subs[0], blockedBy: $blockers[0], blocking: $blocking[0],
+      openPrs: $openPrs[0], closedPrs: $closedPrs[0], bugs: $bugs[0], decisions: $decisions[0], enhancements: $enhancements[0],
+      debt: $debt[0], branchPrs: $branchPrs[0]}' \
   | jq -L "$adapter" -f "$adapter/normalize.jq" --arg project "$slug" --arg branch "$branch" --argjson now "$now" --argjson config "$config" 2>&1) \
   || unavailable "adapters/github/normalize.jq could not read GitHub's answer ($(printf '%s' "$state" | head -n 1))"
 printf '%s\n' "$state"

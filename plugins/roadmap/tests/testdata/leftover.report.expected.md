@@ -10,6 +10,14 @@ None open.
 
 None open.
 
+## Decisions for the owner
+
+None open.
+
+## Enhancements
+
+None open.
+
 ## Debt
 
 None open.
@@ -17,3 +25,7 @@ None open.
 ## Open pull requests
 
 None.
+
+## Suggested next
+
+Nothing: no decision, claim, slice, bug or initiative waits for anyone.

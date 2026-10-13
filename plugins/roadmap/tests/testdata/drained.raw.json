@@ -1,0 +1,47 @@
+{
+  "repo": {"default_branch": "main"},
+  "initiatives": [
+    {"number": 50, "title": "Routes: the planner", "sub_issues_summary": {"total": 1}, "issue_dependencies_summary": {"blocked_by": 0, "blocking": 0}},
+    {"number": 52, "title": "Depots: opening hours", "sub_issues_summary": {"total": 1}, "issue_dependencies_summary": {"blocked_by": 0, "blocking": 0}},
+    {"number": 54, "title": "Invoices: per carrier", "sub_issues_summary": {"total": 0}, "issue_dependencies_summary": {"blocked_by": 0, "blocking": 2}},
+    {"number": 55, "title": "Invoices: credit notes", "sub_issues_summary": {"total": 0}, "issue_dependencies_summary": {"blocked_by": 1, "blocking": 0}},
+    {"number": 56, "title": "Drivers: shifts", "sub_issues_summary": {"total": 0}, "issue_dependencies_summary": {"blocked_by": 0, "blocking": 0}},
+    {"number": 62, "title": "Customs: papers at the border", "sub_issues_summary": {"total": 1}, "issue_dependencies_summary": {"blocked_by": 1, "blocking": 0}},
+    {"number": 64, "title": "Returns: a refused pallet", "sub_issues_summary": {"total": 1}, "issue_dependencies_summary": {"blocked_by": 0, "blocking": 0}},
+    {"number": 67, "title": "Archive: last year's routes", "sub_issues_summary": {"total": 60}, "issue_dependencies_summary": {"blocked_by": 0, "blocking": 0}}
+  ],
+  "subIssues": {
+    "50": [{"number": 51, "title": "Routes: a plan per day", "state": "closed", "state_reason": "completed", "closed_at": "2026-09-12T10:00:00Z", "labels": [{"name": "slice"}], "issue_dependencies_summary": {"blocked_by": 0, "blocking": 0}}],
+    "52": [{"number": 53, "title": "Depots: a closed day", "state": "closed", "state_reason": "completed", "closed_at": "2026-09-13T10:00:00Z", "labels": [{"name": "slice"}], "issue_dependencies_summary": {"blocked_by": 0, "blocking": 0}}],
+    "62": [{"number": 63, "title": "Customs: a declaration", "state": "open", "state_reason": null, "closed_at": null, "labels": [{"name": "slice"}], "issue_dependencies_summary": {"blocked_by": 0, "blocking": 0}}],
+    "64": [{"number": 65, "title": "Returns: back to the depot", "state": "open", "state_reason": null, "closed_at": null, "labels": [{"name": "slice"}], "issue_dependencies_summary": {"blocked_by": 0, "blocking": 0}}],
+    "67": [{"number": 68, "title": "Archive: a year's export", "state": "closed", "state_reason": "completed", "closed_at": "2026-09-14T10:00:00Z", "labels": [{"name": "slice"}], "issue_dependencies_summary": {"blocked_by": 0, "blocking": 0}}]
+  },
+  "blockedBy": {
+    "55": [{"number": 54, "state": "open"}],
+    "62": [{"number": 54, "state": "open"}]
+  },
+  "blocking": {},
+  "openPrs": [
+    {"number": 66, "draft": true, "head": {"ref": "feat/65-returns-back-to-the-depot"}, "base": {"ref": "main"}, "updated_at": "2026-09-10T09:00:00Z", "body": "Closes #65, closes #59"},
+    {"number": 60, "draft": true, "head": {"ref": "chore/bump-jq"}, "base": {"ref": "main"}, "updated_at": "2026-09-01T09:00:00Z", "body": "Bumps jq."}
+  ],
+  "closedPrs": [
+    {"number": 168, "state": "closed", "merged_at": "2026-09-14T10:00:00Z", "updated_at": "2026-09-14T10:00:02Z", "base": {"ref": "main"}, "body": "Closes #68"},
+    {"number": 153, "state": "closed", "merged_at": "2026-09-13T10:00:00Z", "updated_at": "2026-09-13T10:00:02Z", "base": {"ref": "main"}, "body": "Closes #53"},
+    {"number": 151, "state": "closed", "merged_at": "2026-09-12T10:00:00Z", "updated_at": "2026-09-12T10:00:02Z", "base": {"ref": "main"}, "body": "Closes #51"},
+    {"number": 61, "state": "closed", "merged_at": "2026-09-05T10:00:00Z", "updated_at": "2026-09-05T10:00:02Z", "base": {"ref": "main"}, "body": "Fixes #59"}
+  ],
+  "bugs": [
+    {"number": 57, "title": "A plan for a closed depot", "issue_dependencies_summary": {"blocked_by": 0, "blocking": 0}},
+    {"number": 58, "title": "A route with no stops", "issue_dependencies_summary": {"blocked_by": 0, "blocking": 0}},
+    {"number": 59, "title": "A shift across midnight", "issue_dependencies_summary": {"blocked_by": 0, "blocking": 0}},
+    {"number": 69, "title": "A depot with two names", "issue_dependencies_summary": {"blocked_by": 0, "blocking": 0}}
+  ],
+  "decisions": [],
+  "enhancements": [],
+  "debt": [
+    {"number": 70, "title": "One clock abstraction"}
+  ],
+  "branchPrs": []
+}

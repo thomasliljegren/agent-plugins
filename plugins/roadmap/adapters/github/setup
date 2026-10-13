@@ -1,18 +1,44 @@
 #!/usr/bin/env bash
-# roadmap setup [--yes]
+# roadmap setup [--yes] [--practices <a,b,...>]
 # Prepares a repository and its GitHub project for the roadmap, asking before each change (--yes accepts them all).
+# --practices names the practices a new .roadmap.json gets; without it each is asked about, and --yes takes all but merge.
 # Safe to repeat: what is already there is left as it is.
 set -u
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 die() { echo "roadmap setup: $1." >&2; exit 1; }
+usage="usage: roadmap setup [--yes] [--practices <a,b,...>]"
+
+every="findings ready stacking merge"
+about() {
+  case "$1" in
+    findings) echo "what is found on the way is fixed, filed or dropped" ;;
+    ready) echo "what must hold before work is marked ready" ;;
+    stacking) echo "units that build on each other, and a slice that does not fit a session" ;;
+    merge) echo "the session that claimed a unit merges it once its checks pass" ;;
+  esac
+}
 
 yes=false
-case "${1:-}" in
-  "") ;;
-  --yes) yes=true ;;
-  *) die "usage: roadmap setup [--yes]" ;;
-esac
+chosen=false
+practices=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --yes) yes=true ;;
+    --practices)
+      [ $# -ge 2 ] || die "$usage"
+      chosen=true
+      IFS=', ' read -r -a asked <<<"$2"
+      for name in ${asked[@]+"${asked[@]}"}; do
+        case " $every " in *" $name "*) ;; *) die "there is no practice '$name'; the practices are findings, ready, stacking and merge" ;; esac
+        practices="$practices${practices:+ }$name"
+      done
+      shift ;;
+    *) die "$usage" ;;
+  esac
+  shift
+done
+
 confirm() {  # confirm QUESTION
   [ "$yes" = true ] && return 0
   printf '%s [y/N] ' "$1"
@@ -28,14 +54,25 @@ api="repos/$slug"
 err=$(mktemp "${TMPDIR:-/tmp}/roadmap.XXXXXX") || die "cannot create a temporary file"
 trap 'rm -f "$err" "$err.new"' EXIT
 
-# 1. The project opts in.
+# 1. The project opts in, and names the practices it follows.
 file="$root/.roadmap.json"
 if [ -f "$file" ]; then
   echo ".roadmap.json is there already."
   config=$(jq -c '.github // {}' "$file" 2>/dev/null) || die ".roadmap.json is not valid JSON"
-elif confirm "Write .roadmap.json (backend: github)?"; then
-  printf '{\n  "backend": "github"\n}\n' >"$file"
-  echo "  wrote .roadmap.json"
+  [ "$chosen" = false ] || echo "  its practices are left as they are; --practices is for a new file."
+  practices=$(jq -r 'if has("practices") then .practices else ["findings", "ready", "stacking"] end
+                     | if type == "array" then map(strings | select(test("^[a-z0-9-]+$"))) | join(" ") else "" end' "$file")
+else
+  if [ "$chosen" = false ]; then
+    for name in $every; do
+      if [ "$yes" = true ]; then [ "$name" = merge ] || practices="$practices${practices:+ }$name"
+      elif confirm "Follow the practice '$name' ($(about "$name"))?"; then practices="$practices${practices:+ }$name"; fi
+    done
+  fi
+  if confirm "Write .roadmap.json (backend: github; practices: ${practices:-none})?"; then
+    jq -n --arg practices "$practices" '{backend: "github", practices: ($practices | split(" ") | map(select(. != "")))}' >"$file"
+    echo "  wrote .roadmap.json"
+  fi
 fi
 
 # 2. The labels the roadmap reads.
@@ -45,10 +82,17 @@ describe() {
     slice) echo "The smallest piece that ships on its own" ;;
     bug) echo "Something is wrong" ;;
     debt) echo "Work the code owes" ;;
+    enhancement) echo "A feature not built, or scope a design left out" ;;
+    decision) echo "A question only the owner can answer" ;;
   esac
 }
-colour() { case "$1" in initiative) echo 5319e7 ;; slice) echo 0e8a16 ;; bug) echo d73a4a ;; debt) echo fbca04 ;; esac; }
-for kind in initiative slice bug debt; do
+colour() {
+  case "$1" in
+    initiative) echo 5319e7 ;; slice) echo 0e8a16 ;; bug) echo d73a4a ;; debt) echo fbca04 ;;
+    enhancement) echo a2eeef ;; decision) echo d876e3 ;;
+  esac
+}
+for kind in initiative slice bug debt enhancement decision; do
   label=$(named "$kind")
   if gh api -X GET "$api/labels/$(jq -rn --arg label "$label" '$label | @uri')" >/dev/null 2>&1; then
     echo "The label '$label' is there already."
@@ -77,6 +121,12 @@ fi
 settings="$root/.claude/settings.json"
 allow='["Bash(git add *)", "Bash(git commit *)", "Bash(git push *)", "Bash(gh pr ready *)"]'
 ask='["Bash(git push --force*)", "Bash(git push -f *)", "Bash(git push * --force*)", "Bash(git push * -f *)", "Bash(git push -f)", "Bash(git push * +*)"]'
+what="allow git add, commit, push and gh pr ready; ask on force push"
+case " $practices " in *" merge "*)
+  allow=$(jq -c '. + ["Bash(gh pr merge *)", "Bash(gh run rerun *)"]' <<<"$allow")
+  ask=$(jq -c '. + ["Bash(gh pr merge * --admin*)", "Bash(gh pr merge --admin*)"]' <<<"$ask")
+  what="allow git add, commit, push, gh pr ready, gh pr merge and gh run rerun; ask on force push and on a merge with --admin" ;;
+esac
 current='{}'
 if [ -s "$settings" ] && grep -q '[^[:space:]]' "$settings"; then current=$(cat "$settings"); fi
 if ! merged=$(jq --argjson allow "$allow" --argjson ask "$ask" '
@@ -91,7 +141,7 @@ else
   [ -z "$kept" ] || echo "Left under allow, where the project put them: $kept."
   if [ "$(jq -S . <<<"$current")" = "$(jq -S . <<<"$merged")" ]; then
     echo ".claude/settings.json has the permissions already."
-  elif confirm "Add the agent permissions to .claude/settings.json (allow git add, commit, push and gh pr ready; ask on force push)?"; then
+  elif confirm "Add the agent permissions to .claude/settings.json ($what)?"; then
     mkdir -p "$(dirname "$settings")" && printf '%s\n' "$merged" >"$settings" && echo "  wrote .claude/settings.json"
   fi
 fi
