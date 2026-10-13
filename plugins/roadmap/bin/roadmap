@@ -191,8 +191,12 @@ if [ "$mode" != report ]; then
 fi
 changes=""
 if [ -n "$seen" ] && [ -s "$seen" ]; then
+  # Under the snapshot the first thirty: its tables hold the rest. --changes prints nothing else, so it prints them all.
+  most=30
+  [ "$mode" != changes ] || most=null
   # A kept look that cannot be read is no look: there is nothing to compare with, and this one replaces it.
-  changes=$(jq -r -f "$plugin/scripts/changes.jq" --arg mode changes --argjson now "$ROADMAP_NOW" --slurpfile before "$seen" "$out" 2>/dev/null) || changes=""
+  changes=$(jq -r -f "$plugin/scripts/changes.jq" --arg mode changes --argjson now "$ROADMAP_NOW" --argjson most "$most" \
+      --slurpfile before "$seen" "$out" 2>/dev/null) || changes=""
 fi
 if [ "$mode" = changes ]; then
   printf '%s\n' "${changes:-ROADMAP: this checkout has not looked at the roadmap before, so there is nothing to compare with. Run: roadmap}"
@@ -200,7 +204,8 @@ else
   printf '%s\n' "$text"
   case "$changes" in CHANGED*) printf '\n%s\n' "$changes" ;; esac
 fi
+# A git directory that cannot be written keeps no look, and that is all: the braces take the shell's own complaint too.
 if [ -n "$seen" ]; then
-  jq -c -f "$plugin/scripts/changes.jq" --arg mode facts --argjson now "$ROADMAP_NOW" "$out" >"$seen.$$" 2>/dev/null \
-    && mv -f "$seen.$$" "$seen" 2>/dev/null || rm -f "$seen.$$" 2>/dev/null
+  { jq -c -f "$plugin/scripts/changes.jq" --arg mode facts --argjson now "$ROADMAP_NOW" "$out" >"$seen.$$" \
+      && mv -f "$seen.$$" "$seen" || rm -f "$seen.$$"; } 2>/dev/null
 fi

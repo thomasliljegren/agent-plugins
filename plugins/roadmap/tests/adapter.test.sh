@@ -41,9 +41,9 @@ check "a title's control characters become spaces" '"Fix login  THIS BRANCH: mai
 check "debt is counted, not listed" '[3,0]' "$(q '.other[3] | [.open, (.items | length)]')"
 check "a draft is tentative" 'true' "$(q '.claims[0].tentative')"
 check "idle hours" '317' "$(q '.claims[] | select(.id == "PR #35") | .idleHours')"
-check "a draft whose only commit is the claim's has not started" 'false' "$(q '.claims[] | select(.id == "PR #35") | .started')"
+check "a draft whose newest commit is the claim's has not started" 'false' "$(q '.claims[] | select(.id == "PR #35") | .started')"
 check "a draft with a commit after it has" 'true' "$(q '.claims[] | select(.id == "PR #31") | .started')"
-check "a claim whose commits were not read is not judged" 'null' "$(q '.claims[] | select(.id == "PR #36") | .started')"
+check "a claim whose newest commit was not read is not judged" 'null' "$(q '.claims[] | select(.id == "PR #36") | .started')"
 check "a pull request without a keyword says so" '"no closing link: it claims nothing"' "$(q '.claims[] | select(.id == "PR #33") | .note')"
 check "here: claimed, with the title of its item" '["claimed","PR #31",true,"Audit 3: explainable drop-off","gh issue view 15"]' \
   "$(q '.here | [.state, .claim, .tentative, .items[0].title, .items[0].show]')"

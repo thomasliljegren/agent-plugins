@@ -26,7 +26,9 @@ roadmap claim 170 171 --type feat --title "feat(accounts): link an insurer"
 - The command renames the branch to `<type>/<first id>-<description>` (the description from the first issue's title, or `--description`), makes the empty commit `chore: claim #N`, pushes, opens a draft pull request with one `Closes #N` per id and reads it back. Run it from a branch off the default branch, in its own worktree.
 - It refuses on the default branch, when another open pull request closes one of the ids, when an id is not an open issue, and when there are staged changes.
 - Two sessions that claim an id at the same moment both pass that check, so the command reads the open pull requests once more after it opened its own. The pull request opened first, the one with the lower number, keeps the id. The later one releases it, closes its draft when nothing is left, and fails with `lost #N to PR #M`: run `roadmap` and propose again. The earlier one is told that `PR #M claims #N as well`; if `roadmap` still shows both after that, tell the owner.
-- A draft whose only commit is the claim's own is printed with `nothing pushed since the claim`. Stale and like that, it holds no work: the report says to close it, not to pick it up.
+- Only the claim that was just made gives way. Repeating a finished claim keeps what it holds and prints `PR #M claims #N as well: two claims on one item. Tell the owner.` for every other claim on its ids, whatever its number: by then an older pull request may have taken the id by an edit of its description, and its lower number no longer says who was first. A claim that stopped between opening its pull request and that second look is therefore not settled by repeating it; the roadmap shows both claims.
+- The second look reads GitHub's list of open pull requests. If that list does not yet show a pull request opened a moment earlier, both claims stand and neither is told. `roadmap` shows two claims on the slice; tell the owner.
+- A draft whose newest commit is a claim's own is printed with `nothing pushed since the claim`. Stale and like that, nothing was added since it was claimed: the report says to close it, not to pick it up.
 - CI skips drafts (the `PR title` check does not): `gh pr ready` starts it, so run the tests locally until then.
 
 ## Pitfalls
@@ -82,9 +84,9 @@ roadmap overlap
 roadmap overlap src/Accounts docs/accounts.md
 ```
 
-- Without paths it compares what this checkout changes against `origin/<default branch>`, committed or not and untracked files too, with the files of every other open pull request, wherever that one is to merge. With paths it compares those instead, a directory standing for everything under it: that is the form for before the work starts.
-- It prints the pull requests that share a file, what each claims and the files, `2 of 9` being two shared of the nine it changes. A renamed file counts under both its names.
-- It reads the thirty most recently updated pull requests and the first hundred files of each, and says so where there were more (`+2 not read`, `100 of 100 or more`).
+- Without paths it compares what this checkout changes against `origin/<default branch>`, committed or not and untracked files too, with the files of every other open pull request, wherever that one is to merge. With paths it compares those instead, typed from the directory you are in, a directory standing for everything under it: that is the form for before the work starts.
+- It prints the pull requests that share a file, what each claims and the files, `2 of 9` being two shared of the nine it changes. A renamed file counts under both its names, whichever side renamed it.
+- It reads the thirty most recently updated pull requests and says how many it left (`+2 not read`). GitHub lists no more than 3000 files of one pull request: one that large is printed `1 of 3000 or more`, or named under `Read in part` when none of those is shared.
 - A shared file is no conflict yet. It says who to read before you mark your work ready, and that the second of the two to merge takes the default branch in first.
 
 ## What the snapshot can and cannot see
@@ -96,7 +98,7 @@ The adapter asks GitHub's REST API only, because a cloud session's GitHub proxy 
 - Blockers are read from GitHub's dependencies: the first twenty initiatives, the first ten bugs and, of the open sub-issues that wait for something, the first twenty. A blocked sub-issue beyond those is still printed as blocked, with `1 not read` where its blocker would be. A blocker in another repository is printed with that repository's name (`owner/name#N`), and no pull request of this repository counts as a claim on it.
 - Every open issue labelled `bug`, `decision`, `enhancement` or `debt` is read to be counted, a hundred a request, one request after another. A label with many hundreds of open issues can take the snapshot past its five seconds; it then says `ROADMAP UNAVAILABLE` and why.
 - A claim's idle time is counted from the pull request's `updated_at`, which a push, a comment and an edit of the description all move. It is stale after `staleAfterHours` of `.roadmap.json`, 168 where the file does not say.
-- Whether anything was pushed since the claim is asked only of drafts that close something, the first twenty of them. Any other claim carries no such mark.
+- Whether anything was pushed since the claim is read from a draft's newest commit, and asked only of drafts that close something: the twenty that stood still longest. Any other claim carries no such mark.
 - What changed since the last look is worked out from one line for each item, kept in the checkout's git directory (`roadmap-seen.json`, never in the work tree). It is the checkout's last look, whoever looked: a subagent that runs `roadmap` there uses it up for the session. The tables are whole either way.
 - "Closed by hand, not by a merged PR" is judged against the 100 most recently updated closed pull requests. A slice closed before the oldest of them is not judged.
 

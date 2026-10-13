@@ -67,7 +67,7 @@ refuses() { # NAME REASON ARGS...
 fresh refusing claude/w
 refuses "an id someone else holds" "already claimed: PR #204 claims #177" 170 177 --type feat --title "$T"
 refuses "a closed issue" "#172 is not an open issue" 172 --type feat --title "$T"
-refuses "an issue that does not exist" "#999: gh api failed: Not Found (HTTP 404)" 999 --type feat --title "$T"
+refuses "an issue that does not exist: the reason, and nothing of GitHub's answer" "roadmap claim: #999: gh api failed: Not Found (HTTP 404)." 999 --type feat --title "$T"
 refuses "an id that is not a number" "an id is an issue number" abc --type feat --title "$T"
 refuses "a type that is not configured" "--type is one of: feat fix" 170 --type feature --title "$T"
 refuses "a title in another format" "--title must read 'feat(scope): title'" 170 --type feat --title "Link an insurer"
@@ -163,6 +163,18 @@ out=$(GH_STUB_RIVAL="$SCRATCH/rival.json" claim 170 --type feat --title "$T"); s
 contains "the earlier of the two keeps its claim" "Claimed #170: PR #300 (draft)" "$out"
 contains "…and says who else claimed it" "PR #301 claims #170 as well and was opened later: it gives way" "$out"
 check "…and succeeds" 0 "$status"
+# Only the claim that was just made gives way. Later a lower number proves nothing: an older pull request can take the id
+# by an edit of its description, and the claim that stood first must not close itself over that.
 rival 299 'Closes #170'
-contains "a repeated claim looks again" "lost #170 to PR #299" "$(GH_STUB_RIVAL="$SCRATCH/rival.json" claim 170 --type feat --title "$T")"
+: >"$GH_STUB_LOG"
+out=$(GH_STUB_RIVAL="$SCRATCH/rival.json" claim 170 --type feat --title "$T"); status=$?
+contains "a repeated claim keeps what it holds" "Already claimed: PR #300 on feat/170-link-an-insurer-tenant-scope closes #170." "$out"
+contains "…and says who else claims it, whatever its number" "PR #299 claims #170 as well: two claims on one item. Tell the owner." "$out"
+check "…releasing nothing" "" "$(grep -e '-X PATCH' "$GH_STUB_LOG")"
+check "…and succeeds" 0 "$status"
+fresh unreadable claude/u
+check "a list of pull requests that is no list: the reason, and nothing is made" "roadmap claim: GitHub's list of open pull requests could not be read." \
+  "$(GH_STUB_GARBAGE_ON='state=open -f per_page=100 --paginate' claim 170 --type feat --title "$T")"
+check "…" claude/u "$(git -C "$P" branch --show-current)"
+check "GitHub refuses: the reason, and nothing of its answer" "roadmap claim: gh api failed: Server Error (HTTP 502)." "$(GH_STUB_FAIL_ON='state=open -f per_page=100' claim 170 --type feat --title "$T")"
 finish

@@ -2,7 +2,7 @@ include "closes";
 
 # GitHub's REST answers, gathered by `state` into one document, as the normalized state of the adapter contract.
 # Input: {repo, initiatives, subIssues: {"<number>": [...]}, blockedBy: {"<number>": [...]}, blocking: {"<number>": [...]},
-#         openPrs, closedPrs, bugs, decisions, enhancements, debt, branchPrs, prCommits: {"<pull request>": [...]}}
+#         openPrs, closedPrs, bugs, decisions, enhancements, debt, branchPrs, headCommits: {"<pull request>": the message of its newest commit}}
 # Run with -L <this directory>, for closes.jq.
 # Arguments: $project (owner/name), $branch ("" when detached), $now (epoch seconds), $config (the github section of .roadmap.json).
 
@@ -28,7 +28,7 @@ def named($kind): $config.labels[$kind] // $kind;
 | (.subIssues | need("subIssues")) as $subs
 | (.blockedBy | need("blockedBy")) as $blockers
 | (.blocking | need("blocking")) as $blocking
-| (.prCommits // {}) as $commits
+| (.headCommits // {}) as $heads
 | (.initiatives | need("initiatives") | issues) as $initiatives
 | (.bugs | need("bugs") | issues) as $bugs
 | (.decisions | need("decisions") | issues) as $decisions
@@ -85,12 +85,12 @@ def named($kind): $config.labels[$kind] // $kind;
   def decision: {id: "#\(.number | need("number"))", title: (.title | need("title") | safe), blocks: blocks};
   def listed($kind): "gh issue list --label \(named($kind))";
   def idle_hours: (($now - (.updated_at | need("updated_at") | fromdateiso8601)) / 3600) | floor;
-  # `roadmap claim` opens a pull request on one empty commit. While that is its only commit, nothing was pushed since.
-  # `state` reads the commits of drafts only, and of no more than twenty: null where they were not read.
+  # `roadmap claim` opens a pull request on an empty commit. While that is the newest one, nothing was pushed since,
+  # whatever the branch held before it: an earlier claim's commit, or the branch below it in a stack.
+  # `state` reads the newest commit of drafts only, and of no more than twenty: null where it was not read.
   def started:
-    $commits[.number | tostring] as $read
-    | if $read == null then null
-      else ($read | length == 1 and (.[0].commit.message // "" | startswith("chore: claim "))) | not end;
+    $heads[.number | tostring] as $message
+    | if $message == null then null else ($message | startswith("chore: claim ")) | not end;
   # Why a pull request claims nothing, and what puts that right: a keyword is no help to one from a fork or into another branch.
   def unclaimed:
     if (.head.repo.full_name // $project) != $project then {note: "from a fork: it claims nothing", fix: null}

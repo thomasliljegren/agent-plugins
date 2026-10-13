@@ -61,16 +61,16 @@ A project that already has `.roadmap.json` changes its practices by editing the 
 | `roadmap --changes` | only what changed since this checkout last looked |
 | `roadmap claim <ids...> --type <type> --title "<type(scope): title>"` | claim items with a draft pull request |
 | `roadmap release <ids...>` | withdraw a claim |
-| `roadmap overlap [paths...]` | the open pull requests that change the files this branch changes, or the paths named |
+| `roadmap overlap [paths...]` | the open pull requests that change the files this branch changes, or the paths named, typed from the current directory |
 | `roadmap --state` | the state as JSON |
 
 An issue that waits for another is marked with GitHub's blocked-by relation; the roadmap prints it as blocked and keeps it out of what comes next.
 
 What several sessions at once need beyond that:
 
-- **Two claims at the same moment.** `roadmap claim` reads the open pull requests again after it opened its own. The one opened first keeps the issue; the other releases it and fails.
+- **Two claims at the same moment.** `roadmap claim` reads the open pull requests again after it opened its own. The one opened first keeps the issue; the other releases it and fails. A repeated claim gives nothing up: it names the other claims on its issues.
 - **A free slice after a claimed one** is printed `next, behind PR #N`: it may build on work that has not merged.
-- **A claim that holds nothing.** A draft with no commit but the claim's own says `nothing pushed since the claim`, and a stale one like that is to close, not to pick up.
+- **A claim nobody works on.** A draft whose newest commit is the claim's own says `nothing pushed since the claim`, and a stale one like that is to close, not to pick up.
 - **What changed since the last look.** A snapshot after the first ends with `CHANGED since`: the slices, claims, bugs and decisions that moved. A subagent starts with one line that tells it to run `roadmap` itself.
 - **Two claims in one file.** `roadmap overlap` names the pull requests that change the same files, before the second of them finds out at merge.
 

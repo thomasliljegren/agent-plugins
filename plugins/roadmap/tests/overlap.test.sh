@@ -40,6 +40,20 @@ contains "a directory holds every file under it" "    PR #36  claude/escape-node
 contains "…and a file is itself" "    PR #35  claude/vendor-entries-7a8b9c         #18     1 of 1: docs/untouched.md" "$out"
 check "a path is whole names: src/Ap is not src/Api" "No other open pull request changes these paths." "$(run src/Ap | sed -n 2p)"
 
+# A path is typed from where the session stands, like every path it types.
+from() { (cd "$P/$1" && bash "$ROADMAP" overlap "${@:2}" 2>&1); }
+contains "a path from a subdirectory" "OVERLAP example/enzure: the paths src/Api;" "$(from src Api)"
+contains "…finds what is under it" "PR #36" "$(from src Api)"
+contains "…with ./ before it" "the paths src/Api/Routes.cs;" "$(from src ./Api/Routes.cs)"
+contains "…and .. in it" "the paths docs/untouched.md;" "$(from src/Api ../../docs/untouched.md)"
+contains "an absolute path" "the paths src/Api;" "$(run "$P/src/Api")"
+out=$(from src ..)
+contains "the repository itself is every file" "the paths .;" "$out"
+check "…so every pull request that changes a file is listed" 5 "$(grep -c '^    PR #' <<<"$out")"
+contains "a path outside the repository is refused" "roadmap overlap: ../.. is outside the repository." "$(from src ../..)"
+contains "…and so is an absolute one" "roadmap overlap: /etc/hosts is outside the repository." "$(run /etc/hosts)"
+contains "an option is not a path" "roadmap overlap: unknown option --help. Usage: roadmap overlap [paths...]." "$(run --help)"
+
 # This branch's own pull request is not another's.
 git -C "$P" checkout -q -b claude/escape-node-ids-4d5e6f
 check "the branch's own pull request is left out" "" "$(run src/Api | grep 'PR #36')"
@@ -49,7 +63,22 @@ git -C "$P" checkout -q feat/170-link-insurer
 jq '.prFiles["36"] = [range(0; 100) | {filename: "src/Api/f\(.).cs"}]' "$SCRATCH/files.raw.json" >"$SCRATCH/many.raw.json"
 stub_gh "$SCRATCH/many.raw.json"
 out=$(run src/Api)
-contains "many shared files: the first five and how many more" "100 of 100 or more: src/Api/f0.cs, src/Api/f1.cs, src/Api/f2.cs, src/Api/f3.cs, src/Api/f4.cs (+95 more)" "$out"
+contains "many shared files: the first five and how many more" "100 of 100: src/Api/f0.cs, src/Api/f1.cs, src/Api/f2.cs, src/Api/f3.cs, src/Api/f4.cs (+95 more)" "$out"
+contains "a pull request's files are read to the end" "pulls/36/files -f per_page=100 --paginate" "$(cat "$GH_STUB_LOG")"
+jq '.prFilesPages = {"36": [[range(0; 100) | {filename: "aaa/f\(.)"}], [{filename: "src/Api/Routes.cs"}]]}' "$SCRATCH/files.raw.json" >"$SCRATCH/pages.raw.json"
+stub_gh "$SCRATCH/pages.raw.json"
+contains "a shared file on a later page is found" "    PR #36  claude/escape-node-ids-4d5e6f  #26     1 of 101: src/Api/Routes.cs" "$(run src/Api/Routes.cs | grep 'PR #36')"
+# GitHub lists no more than 3000 files of a pull request. One that large is said to be read in part, shared file or not.
+jq '.prFiles["36"] = [range(0; 3000) | {filename: "aaa/f\(.)"}] | .prFiles["9"] = ([{filename: "src/Api/Routes.cs"}] + [range(1; 3000) | {filename: "bbb/f\(.)"}])' \
+  "$SCRATCH/files.raw.json" >"$SCRATCH/huge.raw.json"
+stub_gh "$SCRATCH/huge.raw.json"
+out=$(run src/Api/NodeId.cs)
+contains "nothing shared, one read in part: the answer says as far as they were read" "No other open pull request changes these paths, as far as they were read." "$out"
+contains "…and names the ones read in part" "Read in part, the first 3000 files each, and none of those is shared: PR #36, PR #9." "$out"
+out=$(run src/Api/Routes.cs)
+contains "a shared file in one read in part" "1 of 3000 or more: src/Api/Routes.cs" "$out"
+contains "…leaves only the other to name" "none of those is shared: PR #36." "$out"
+stub_gh "$SCRATCH/many.raw.json"
 jq '.openPrs = [range(0; 32) | {number: (500 + .), draft: true, head: {ref: "b\(.)"}, base: {ref: "main"}, updated_at: "2026-09-21T09:00:00Z", body: ""}]' \
   "$SCRATCH/files.raw.json" >"$SCRATCH/crowd.raw.json"
 stub_gh "$SCRATCH/crowd.raw.json"
@@ -63,8 +92,16 @@ stub_gh "$SCRATCH/hostile.raw.json"
 check "a file name cannot start a line of its own" "" "$(run src/Api | grep '^THIS BRANCH')"
 
 stub_gh "$SCRATCH/files.raw.json"
-contains "GitHub refuses: it fails and says why" "roadmap overlap: gh api failed: Server Error (HTTP 502)." "$(GH_STUB_FAIL_ON=/files run src/Api)"
+check "GitHub refuses: it fails and says why, and no more" "roadmap overlap: gh api failed: Server Error (HTTP 502)." "$(GH_STUB_FAIL_ON=/files run src/Api)"
 check "…with exit 1" 1 "$(GH_STUB_FAIL_ON=/files run src/Api >/dev/null; echo $?)"
+check "the list of pull requests fails: the reason, and nothing of GitHub's answer" "roadmap overlap: gh api failed: Server Error (HTTP 502)." "$(GH_STUB_FAIL_ON=state=open run src/Api)"
+check "files that are no list: it fails and says of which pull request" "roadmap overlap: GitHub's files of PR #31 could not be read." "$(GH_STUB_GARBAGE_ON=/files run src/Api)"
+check "…with exit 1" 1 "$(GH_STUB_GARBAGE_ON=/files run src/Api >/dev/null; echo $?)"
+
+# A file this branch renamed is both its names, like one another renamed.
+git -C "$P" add -A && git -C "$P" commit -q -m work
+git -C "$P" mv docs/untouched.md docs/manual.md && git -C "$P" commit -q -m rename
+contains "a file this branch renamed is found under its old name" "PR #35" "$(run)"
 git -C "$P" update-ref -d refs/remotes/origin/main
 contains "a clone without origin/main cannot compare" "this clone has no origin/main to compare with" "$(run)"
 contains "…and can still ask about paths" "OVERLAP example/enzure: the paths src/Api" "$(run src/Api)"

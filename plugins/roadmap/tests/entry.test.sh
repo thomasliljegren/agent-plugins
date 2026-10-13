@@ -100,6 +100,39 @@ contains "the hook says what changed too" "    enhancements: 9 open -> 1 open" "
 jq '.other[0].open = 12' "$DATA/busy.state.json" >"$SCRATCH/moving.json"; run >/dev/null
 jq '.other[0].open = 12 | .other[0].items |= (.[1:] + [{id: "#90", title: "Was eleventh", claims: [], blockedBy: []}])' "$DATA/busy.state.json" >"$SCRATCH/moving.json"
 check "an item that enters or leaves a list that was cut short is not called new or closed" "" "$(run | grep 'bug #90\|bug #26')"
+# …and so does a list that is cut short in one of the two looks only.
+look() { jq "$1" "$DATA/busy.state.json" >"$SCRATCH/moving.json"; run "${@:2}"; }
+older='[{id: "#5", title: "An older one", claims: [], blockedBy: []}]'
+look . >/dev/null
+out=$(look ".other[0].open = 7 | .other[0].items |= ($older + .[:-1])")
+check "a list cut short now: what fell past the cut is not closed, what entered is not new" "" "$(grep 'bug #74\|bug #5' <<<"$out")"
+contains "…and its count still moves" "    bugs: 6 open -> 7 open" "$out"
+check "a list cut short before: what comes into view is not new" "" "$(look . | grep 'bug #74\|bug #5')"
+look '.moreInitiatives = 1 | .initiatives |= .[1:]' >/dev/null
+check "initiatives beyond those read: one that comes into view is not new, and neither are its slices" "" "$(look . | grep '^    initiative #12\|^    slice ')"
+# An initiative takes its slices along when it closes, and brings them when it is new.
+look . >/dev/null
+out=$(look '.initiatives |= .[1:]')
+contains "an initiative that closed" "    initiative #12 Scanner ops 1: audit backbone: open -> closed" "$out"
+check "…is one line, not one for each of its slices" "" "$(grep '    slice ' <<<"$out")"
+out=$(look .)
+contains "a new initiative" "    initiative #12 Scanner ops 1: audit backbone: new, open" "$out"
+check "…is one line too" "" "$(grep '    slice ' <<<"$out")"
+out=$(look '.initiatives[0].slices |= .[:-1]')
+contains "a slice taken out of an initiative that stays" "    slice #20 " "$out"
+# More changes than the snapshot has room for.
+crowd='.claims += [range(0; 40) | {id: "PR #\(600 + .)", ref: "b\(.)", tentative: true, idleHours: 0, started: null, items: [], note: "x", fix: null}]'
+look . >/dev/null
+out=$(look "$crowd")
+check "under the snapshot, the first thirty changes" 30 "$(grep -c '^    claim PR #6' <<<"$out")"
+contains "…and how many more its tables hold" "    (+10 more: each of them is in the tables above)" "$out"
+look . >/dev/null
+check "--changes has no tables, so it prints every one" 40 "$(look "$crowd" --changes | grep -c '^    claim PR #6')"
+# A git directory that cannot be written keeps no look and says nothing.
+look . >/dev/null
+chmod a-w "$P/.git"
+check "a git directory that cannot be written: the snapshot, and no complaint" "" "$(run | grep -i 'denied\|roadmap-seen')"
+chmod u+w "$P/.git"
 printf 'not json' >"$SEEN"
 check "a kept look that cannot be read is no failure" "$(sed -n 1p "$DATA/busy.expected.txt")" "$(run | sed -n 1p)"
 check "…and is replaced" yes "$(jq -e '.facts | length > 0' "$SEEN" >/dev/null 2>&1 && echo yes)"

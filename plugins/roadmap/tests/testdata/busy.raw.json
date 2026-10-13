@@ -334,7 +334,8 @@
       "number": 31,
       "draft": true,
       "head": {
-        "ref": "claude/explainable-dropoff-1a2b3c"
+        "ref": "claude/explainable-dropoff-1a2b3c",
+        "sha": "aaaaa31"
       },
       "base": {
         "ref": "main"
@@ -382,7 +383,8 @@
       "number": 35,
       "draft": true,
       "head": {
-        "ref": "claude/vendor-entries-7a8b9c"
+        "ref": "claude/vendor-entries-7a8b9c",
+        "sha": "aaaaa35"
       },
       "base": {
         "ref": "main"
@@ -575,25 +577,8 @@
       "body": "Closes #15"
     }
   ],
-  "prCommits": {
-    "31": [
-      {
-        "commit": {
-          "message": "chore: claim #15"
-        }
-      },
-      {
-        "commit": {
-          "message": "feat(audit): explain a drop-off"
-        }
-      }
-    ],
-    "35": [
-      {
-        "commit": {
-          "message": "chore: claim #18"
-        }
-      }
-    ]
+  "headCommits": {
+    "31": "feat(audit): explain a drop-off",
+    "35": "chore: claim #18"
   }
 }
