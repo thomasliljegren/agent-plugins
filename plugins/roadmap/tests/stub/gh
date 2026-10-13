@@ -5,6 +5,7 @@
 #   GH_STUB_FAIL_ON   fail only the calls whose arguments contain this text
 #   GH_STUB_GARBAGE_ON answer the calls whose arguments contain this text with $GH_STUB_GARBAGE (a gateway's page), exit 0
 #   GH_STUB_BRANCH_PR a file: a pull request opened with POST is written there, and is then the branch's open pull request
+#   GH_STUB_RIVAL     a file with a list of pull requests that are open as well once that one is: a claim made at the same moment
 echo "gh $*" >>"${GH_STUB_LOG:-/dev/null}"
 raw=$GH_STUB_RAW
 all="$*"
@@ -48,6 +49,12 @@ case "$*" in
   *"labels=decision"*) jq '.decisions // []' "$raw" ;;
   *"labels=enhancement"*) jq '.enhancements // []' "$raw" ;;
   *"labels=debt"*) jq .debt "$raw" ;;
+  *"/pulls/"[0-9]*"/files"*)
+    number=${all#*/pulls/}; number=${number%%/files*}
+    jq --arg number "$number" '(.prFiles // {})[$number] // []' "$raw" ;;
+  *"/pulls/"[0-9]*"/commits"*)
+    number=${all#*/pulls/}; number=${number%%/commits*}
+    jq --arg number "$number" '(.prCommits // {})[$number] // []' "$raw" ;;
   *"/pulls/"[0-9]*) cat "$created" ;;
   *"/pulls"*"head="*)
     if [ -f "$created" ]; then jq -s . "$created"
@@ -55,7 +62,9 @@ case "$*" in
       *"state=open"*) jq '.branchPrs | map(select(.state == "open"))' "$raw" ;;
       *) jq .branchPrs "$raw" ;;
     esac; fi ;;
-  *"/pulls"*"state=open"*) jq .openPrs "$raw" ;;
+  *"/pulls"*"state=open"*)
+    if [ -f "$created" ]; then jq -s '.[0].openPrs + [.[1]] + (.[2] // [])' "$raw" "$created" "${GH_STUB_RIVAL:-/dev/null}"
+    else jq .openPrs "$raw"; fi ;;
   *"/pulls"*"state=closed"*) jq .closedPrs "$raw" ;;
   "api -X GET repos/"*) jq .repo "$raw" ;;
   *) echo "gh: the stub has no answer for: $*" >&2; exit 1 ;;

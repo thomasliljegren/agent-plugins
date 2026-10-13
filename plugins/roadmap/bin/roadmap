@@ -2,12 +2,17 @@
 # Live project status from the team's own tracker, asked on every run and stored nowhere.
 #   roadmap                     the snapshot for the checkout in the current directory
 #   roadmap --report            the same state as the Markdown report, every open slice listed
+#   roadmap --changes           only what changed since this checkout last looked
 #   roadmap --hook              the snapshot as a Claude Code SessionStart hook; silent in a project without .roadmap.json
+#   roadmap --subagent          one line of context as a SubagentStart hook; silent in a project without .roadmap.json
 #   roadmap --state             the normalized state itself
 #   roadmap claim <ids...>      claim items (the adapter's options follow the ids)
 #   roadmap release <ids...>    withdraw a claim
+#   roadmap overlap [paths...]  the claims that change the files this branch changes, or the paths named
 #   roadmap setup [backend]     prepare the tracker and the repository (default backend: github)
 # The status modes always exit 0: a session has to start even when the tracker cannot be reached, and it says so instead of guessing.
+# Status is asked on every run and never kept. What a checkout does keep, in its git directory, is one line for each item
+# of its last look, so that the next look can say what changed.
 set -u
 PATH="$PATH:/opt/homebrew/bin:/usr/local/bin"   # the desktop app's hooks do not always inherit the shell's PATH
 plugin=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
@@ -46,14 +51,16 @@ case "${1:-}" in
   "") ;;
   --hook) mode=hook ;;
   --report) mode=report ;;
+  --changes) mode=changes ;;
+  --subagent) mode=subagent ;;
   --state) mode=state ;;
-  claim|release|setup) mode=$1; shift ;;
-  *) sed -n '2,10s/^# \{0,1\}//p' "${BASH_SOURCE[0]}" >&2; exit 2 ;;
+  claim|release|overlap|setup) mode=$1; shift ;;
+  *) sed -n '2,13s/^# \{0,1\}//p' "${BASH_SOURCE[0]}" >&2; exit 2 ;;
 esac
 
 # Where is the session? A hook is told on stdin; without that, Claude Code's project directory, then the working directory.
 cwd=$PWD
-if [ "$mode" = hook ]; then
+if [ "$mode" = hook ] || [ "$mode" = subagent ]; then
   input=""
   IFS= read -r -t 1 -d '' input || true
   cwd=$(printf '%s' "$input" | jq -r '.cwd // empty' 2>/dev/null || true)
@@ -82,14 +89,23 @@ fi
 
 # A project that has not opted in is left alone.
 if [ -z "$root" ] || [ ! -f "$file" ]; then
-  [ "$mode" = hook ] && exit 0
+  case "$mode" in hook|subagent) exit 0 ;; esac
   echo "This project has no .roadmap.json at its repository root, so it has not opted in. Run: roadmap setup" >&2
   exit 1
 fi
 
-fail() {  # the status modes report and exit 0; claim and release fail
+# A subagent starts without the snapshot its session began with. One line, and no question to the tracker: most
+# subagents never need the status, and the one that does asks for it.
+if [ "$mode" = subagent ]; then
+  command -v jq >/dev/null 2>&1 || exit 0
+  jq -cn '{hookSpecificOutput: {hookEventName: "SubagentStart", additionalContext:
+    "This project shares its work through the team\u0027s tracker (the roadmap skill). Status moves while a session works: run `roadmap` before you pick, claim, file or report on work, and take status from nothing else."}}'
+  exit 0
+fi
+
+fail() {  # the status modes report and exit 0; claim, release and overlap fail
   case "$mode" in
-    claim|release) echo "roadmap $mode: $1." >&2; exit 1 ;;
+    claim|release|overlap) echo "roadmap $mode: $1." >&2; exit 1 ;;
     *) unavailable "$1" ;;
   esac
 }
@@ -128,7 +144,7 @@ ROADMAP_NOW=${ROADMAP_NOW:-$(date -u +%s)}
 export ROADMAP_CONFIG ROADMAP_ROOT ROADMAP_BRANCH ROADMAP_NOW
 
 case "$mode" in
-  claim|release)
+  claim|release|overlap)
     [ -x "$adapter/$mode" ] || fail "the $backend adapter has no $mode command ($adapter)"
     exec "$adapter/$mode" "$@" ;;
 esac
@@ -162,6 +178,29 @@ format=snapshot
 [ "$mode" = report ] && format=report
 rules=$(jq -r '.rules // ""' "$file")
 practices=$(practices_sentence)
-text=$(jq -r -f "$plugin/scripts/render.jq" --arg format "$format" --argjson now "$ROADMAP_NOW" --arg rules "$rules" --arg practices "$practices" "$out" 2>&1) \
+stale=$(jq -r '.staleAfterHours // 168 | if type == "number" and . > 0 then . else empty end' "$file" 2>/dev/null)
+[ -n "$stale" ] || unavailable "staleAfterHours in .roadmap.json is not a number of hours above zero"
+text=$(jq -r -f "$plugin/scripts/render.jq" --arg format "$format" --argjson now "$ROADMAP_NOW" --arg rules "$rules" --arg practices "$practices" \
+    --argjson staleAfter "$stale" "$out" 2>&1) \
   || unavailable "the answer of the $backend adapter could not be read ($(printf '%s' "$text" | head -n 1 | cut -c 1-200))"
-printf '%s\n' "$text"
+
+# A look is the snapshot, by hand or at a session's start, or --changes. The report and --state are relayed, not looked at.
+seen=""
+if [ "$mode" != report ]; then
+  seen=$(git -C "$root" rev-parse --absolute-git-dir 2>/dev/null) && seen="$seen/roadmap-seen.json" || seen=""
+fi
+changes=""
+if [ -n "$seen" ] && [ -s "$seen" ]; then
+  # A kept look that cannot be read is no look: there is nothing to compare with, and this one replaces it.
+  changes=$(jq -r -f "$plugin/scripts/changes.jq" --arg mode changes --argjson now "$ROADMAP_NOW" --slurpfile before "$seen" "$out" 2>/dev/null) || changes=""
+fi
+if [ "$mode" = changes ]; then
+  printf '%s\n' "${changes:-ROADMAP: this checkout has not looked at the roadmap before, so there is nothing to compare with. Run: roadmap}"
+else
+  printf '%s\n' "$text"
+  case "$changes" in CHANGED*) printf '\n%s\n' "$changes" ;; esac
+fi
+if [ -n "$seen" ]; then
+  jq -c -f "$plugin/scripts/changes.jq" --arg mode facts --argjson now "$ROADMAP_NOW" "$out" >"$seen.$$" 2>/dev/null \
+    && mv -f "$seen.$$" "$seen" 2>/dev/null || rm -f "$seen.$$" 2>/dev/null
+fi

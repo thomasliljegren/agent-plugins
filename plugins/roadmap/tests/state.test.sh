@@ -18,12 +18,14 @@ check "every call is a REST GET: no GraphQL, which a cloud session's proxy refus
 check "sub-issues are asked only of initiatives that have some" "12 25 43" "$(grep -o 'issues/[0-9]*/sub_issues' <<<"$calls" | grep -o '[0-9]*' | sort -nu | paste -sd' ' -)"
 check "blockers are asked only of open issues whose summary counts one" "17 18 22 27" "$(grep -o 'issues/[0-9]*/dependencies/blocked_by' <<<"$calls" | grep -o '[0-9]*' | sort -nu | paste -sd' ' -)"
 check "what a decision blocks is asked only where it blocks something" "28" "$(grep -o 'issues/[0-9]*/dependencies/blocking' <<<"$calls" | grep -o '[0-9]*' | sort -nu | paste -sd' ' -)"
+check "commits are asked only of drafts that claim something" "31 35" "$(grep -o 'pulls/[0-9]*/commits' <<<"$calls" | grep -o '[0-9]*' | sort -nu | paste -sd' ' -)"
 contains "the two new kinds are asked by label" "labels=decision" "$calls"
 contains "…" "labels=enhancement" "$calls"
 contains "the branch's pull request is asked by owner and branch" "head=example:claude/explainable-dropoff-1a2b3c" "$calls"
 
 stub_gh "$DATA/leftover.raw.json"
 git -C "$P" checkout -q -b claude/pr-title-format-ci-eea340
+rm -f "$P/.git/roadmap-seen.json"   # another tracker behind the same checkout: nothing to compare with
 opt_in "$P" '{"backend": "github", "practices": []}'
 check "end to end: a leftover worktree" "$(cat "$DATA/leftover.expected.txt")" "$(run)"
 

@@ -32,7 +32,8 @@ def other($p):
 
 def claim($p):
   want("\($p).id"; .id | str), want("\($p).ref"; .ref | str), want("\($p).tentative"; .tentative | is("boolean")),
-  want("\($p).idleDays"; .idleDays | is("number")), want("\($p).items"; .items | strs),
+  want("\($p).idleHours"; .idleHours | is("number")), want("\($p).started"; .started == null or (.started | is("boolean"))),
+  want("\($p).items"; .items | strs),
   want("\($p).note"; .note == null or (.note | str)), want("\($p).fix"; .fix == null or (.fix | str));
 
 want("project"; .project | str), want("backend"; .backend | str), want("defaultBranch"; .defaultBranch | str),

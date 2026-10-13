@@ -19,7 +19,7 @@ now=${ROADMAP_NOW:-$(date -u +%s)}
 tmp=$(mktemp -d "${TMPDIR:-/tmp}/roadmap.XXXXXX") || unavailable "cannot create a temporary directory"
 trap 'rm -rf "$tmp"' EXIT
 trap 'kill $(jobs -p) 2>/dev/null; exit 143' TERM   # the entry point's time limit: take the gh calls along
-mkdir "$tmp/subs" "$tmp/blockedBy" "$tmp/blocking"
+mkdir "$tmp/subs" "$tmp/blockedBy" "$tmp/blocking" "$tmp/commits"
 
 get() {  # get NAME ARGS...: one REST GET into $tmp/NAME.json, in the background
   local name=$1; shift
@@ -76,9 +76,16 @@ blocked=$( { jq -r "$issues | .[:20][] | $waits" "$tmp/initiatives.json" && jq -
 holding=$(jq -r "$issues | .[:10][] | select((.issue_dependencies_summary.blocking // 0) > 0) | .number" "$tmp/decisions.all" 2>/dev/null) \
   || unavailable "GitHub's list of decisions could not be read"
 blocked=$(printf '%s\n' $blocked | sort -un)   # an issue can be an initiative and a bug: one request, one file
+# A draft that claims something and holds one commit, the claim's own, has not started. Two commits answer that, and
+# twenty drafts keep the round inside the time limit; normalize.jq leaves the rest unjudged.
+default=$(jq -r '.default_branch // empty' "$tmp/repo.json" 2>/dev/null) || unavailable "GitHub's answer on the repository could not be read"
+drafts=$(jq -r -L "$adapter" --arg default "$default" --arg slug "$slug" 'include "closes";
+  [.[] | select(.draft and .base.ref == $default and (.head.repo.full_name // $slug) == $slug and (.body | closes | length) > 0) | .number] | .[:20][]' \
+  "$tmp/openPrs.all" 2>/dev/null) || unavailable "GitHub's list of openPrs could not be read"
 for number in $wanted; do get "subs/$number" "$api/issues/$number/sub_issues" -f per_page=50; done
 for number in $blocked; do get "blockedBy/$number" "$api/issues/$number/dependencies/blocked_by" -f per_page=100; done
 for number in $holding; do get "blocking/$number" "$api/issues/$number/dependencies/blocking" -f per_page=100; done
+for number in $drafts; do get "commits/$number" "$api/pulls/$number/commits" -f per_page=2; done
 settle
 
 # A sub-issue's blockers can be asked for only once the sub-issues are known. A closed one waits for nothing.
@@ -103,13 +110,15 @@ gathered() {
 gathered subs $wanted || unavailable "GitHub's sub-issues could not be read"
 gathered blockedBy $blocked $later || unavailable "GitHub's blockers could not be read"
 gathered blocking $holding || unavailable "GitHub's answer on what the decisions block could not be read"
+gathered commits $drafts || unavailable "GitHub's commits of the draft pull requests could not be read"
 
 state=$(jq -n --slurpfile repo "$tmp/repo.json" --slurpfile initiatives "$tmp/initiatives.json" \
     --slurpfile openPrs "$tmp/openPrs.all" --slurpfile closedPrs "$tmp/closedPrs.json" \
     --slurpfile bugs "$tmp/bugs.all" --slurpfile decisions "$tmp/decisions.all" --slurpfile enhancements "$tmp/enhancements.all" \
     --slurpfile debt "$tmp/debt.all" --slurpfile branchPrs "$tmp/branchPrs.json" \
     --slurpfile subs "$tmp/subs.all" --slurpfile blockers "$tmp/blockedBy.all" --slurpfile blocking "$tmp/blocking.all" \
-    '{repo: $repo[0], initiatives: $initiatives[0], subIssues: $subs[0], blockedBy: $blockers[0], blocking: $blocking[0],
+    --slurpfile commits "$tmp/commits.all" \
+    '{repo: $repo[0], initiatives: $initiatives[0], subIssues: $subs[0], blockedBy: $blockers[0], blocking: $blocking[0], prCommits: $commits[0],
       openPrs: $openPrs[0], closedPrs: $closedPrs[0], bugs: $bugs[0], decisions: $decisions[0], enhancements: $enhancements[0],
       debt: $debt[0], branchPrs: $branchPrs[0]}' \
   | jq -L "$adapter" -f "$adapter/normalize.jq" --arg project "$slug" --arg branch "$branch" --argjson now "$now" --argjson config "$config" 2>&1) \

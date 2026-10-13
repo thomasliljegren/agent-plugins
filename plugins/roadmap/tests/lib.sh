@@ -57,6 +57,6 @@ opt_in() {
 # stub_gh RAW: put tests/stub/gh first on PATH, answering from a *.raw.json fixture and logging each call.
 stub_gh() {
   export PATH="$TESTS/stub:$PATH" GH_STUB_RAW="$1" GH_STUB_LOG="$SCRATCH/gh.log"
-  unset GH_STUB_FAIL GH_STUB_SLEEP GH_STUB_BRANCH_PR GH_STUB_GARBAGE_ON GH_STUB_GARBAGE
+  unset GH_STUB_FAIL GH_STUB_SLEEP GH_STUB_BRANCH_PR GH_STUB_GARBAGE_ON GH_STUB_GARBAGE GH_STUB_RIVAL
   : >"$GH_STUB_LOG"
 }

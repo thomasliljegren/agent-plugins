@@ -34,7 +34,8 @@ contains "into the default branch" "-f base=main" "$calls"
 check "one closing keyword per issue" "Closes #170
 Closes #171" "$(jq -r .body "$GH_STUB_BRANCH_PR")"
 check "one pull request is opened" 1 "$(grep -c 'api -X POST' <<<"$calls")"
-check "…and read back last" "gh api -X GET repos/example/enzure/pulls/300" "$(tail -n 1 <<<"$calls")"
+check "…and read back, and then the others are read once more" "gh api -X GET repos/example/enzure/pulls/300
+gh api -X GET repos/example/enzure/pulls -f state=open -f per_page=100 --paginate" "$(tail -n 2 <<<"$calls")"
 check "repeating a finished claim changes nothing and succeeds" "Already claimed: PR #300 on feat/170-link-an-insurer-tenant-scope closes #170, #171." "$(claim 171 170 --type feat --title "$T")"
 check "…with no second commit" 1 "$(git -C "$P" log --format=%s main..HEAD | grep -c 'chore: claim')"
 contains "the same branch cannot claim something else" "this branch already has PR #300, which closes 170 171" "$(claim 12 --type feat --title "$T")"
@@ -144,4 +145,24 @@ git -C "$P" push -q -u origin claude/old-name
 out=$(claim 170 --type feat --title "$T" --description 'link insurer')
 contains "a branch pushed under its old name: the old remote branch is named" "origin/claude/old-name is left as it is" "$out"
 check "…and the branch now follows its new name" origin/feat/170-link-insurer "$(git -C "$P" rev-parse --abbrev-ref '@{upstream}')"
+# Two sessions that claim at the same moment both pass the check. The pull request opened first keeps the claim.
+rival() { jq -n --argjson number "$1" --arg body "$2" '[{number: $number, draft: true, head: {ref: "feat/x"}, base: {ref: "main"}, body: $body}]' >"$SCRATCH/rival.json"; }
+fresh raced claude/r
+rival 299 'Closes #171'
+out=$(GH_STUB_RIVAL="$SCRATCH/rival.json" claim 170 171 --type feat --title "$T"); status=$?
+contains "the later of two claims made at once gives way" "lost #171 to PR #299, which was opened first" "$out"
+contains "…and releases what it lost, keeping the rest" "Released #171: PR #300 still closes #170." "$out"
+check "…and fails, so the session proposes again" 1 "$status"
+fresh raced2 claude/r2
+rival 299 'Closes #170'
+out=$(GH_STUB_RIVAL="$SCRATCH/rival.json" claim 170 --type feat --title "$T")
+contains "a claim that lost everything closes its draft" "draft PR #300 closed nothing more and is closed" "$out"
+fresh raced3 claude/r3
+rival 301 'Closes #170'
+out=$(GH_STUB_RIVAL="$SCRATCH/rival.json" claim 170 --type feat --title "$T"); status=$?
+contains "the earlier of the two keeps its claim" "Claimed #170: PR #300 (draft)" "$out"
+contains "…and says who else claimed it" "PR #301 claims #170 as well and was opened later: it gives way" "$out"
+check "…and succeeds" 0 "$status"
+rival 299 'Closes #170'
+contains "a repeated claim looks again" "lost #170 to PR #299" "$(GH_STUB_RIVAL="$SCRATCH/rival.json" claim 170 --type feat --title "$T")"
 finish

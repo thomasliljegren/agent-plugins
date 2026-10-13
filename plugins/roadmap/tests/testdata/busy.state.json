@@ -307,7 +307,8 @@
       "id": "PR #31",
       "ref": "claude/explainable-dropoff-1a2b3c",
       "tentative": true,
-      "idleDays": 0,
+      "idleHours": 5,
+      "started": true,
       "items": [
         "#15"
       ],
@@ -318,7 +319,8 @@
       "id": "PR #36",
       "ref": "claude/escape-node-ids-4d5e6f",
       "tentative": false,
-      "idleDays": 0,
+      "idleHours": 19,
+      "started": null,
       "items": [
         "#26"
       ],
@@ -329,7 +331,8 @@
       "id": "PR #9",
       "ref": "claude/vendor-mock-simulator-f49ae9",
       "tentative": false,
-      "idleDays": 1,
+      "idleHours": 27,
+      "started": null,
       "items": [
         "#24"
       ],
@@ -340,7 +343,8 @@
       "id": "PR #33",
       "ref": "claude/bump-hotchocolate-9f8e7d",
       "tentative": false,
-      "idleDays": 2,
+      "idleHours": 54,
+      "started": null,
       "items": [],
       "note": "no closing link: it claims nothing",
       "fix": "put Closes #N in its body"
@@ -349,7 +353,8 @@
       "id": "PR #35",
       "ref": "claude/vendor-entries-7a8b9c",
       "tentative": true,
-      "idleDays": 13,
+      "idleHours": 317,
+      "started": false,
       "items": [
         "#18"
       ],
@@ -360,7 +365,8 @@
       "id": "PR #37",
       "ref": "feat/17-pallet-stays-part-two",
       "tentative": false,
-      "idleDays": 0,
+      "idleHours": 6,
+      "started": null,
       "items": [],
       "note": "into feat/17-pallet-stays, not main: it claims nothing",
       "fix": "gh pr edit 37 --base main"

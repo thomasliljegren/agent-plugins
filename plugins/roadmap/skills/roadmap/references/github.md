@@ -25,6 +25,8 @@ roadmap claim 170 171 --type feat --title "feat(accounts): link an insurer"
 - `--type` is one of the project's types (`feat`, `fix`, `refactor`, `perf`, `docs`, `test`, `build`, `ci`, `chore` unless `.roadmap.json` says otherwise). `--title` is the pull request's title, `type(scope): title`, the scope a lowercase module or area.
 - The command renames the branch to `<type>/<first id>-<description>` (the description from the first issue's title, or `--description`), makes the empty commit `chore: claim #N`, pushes, opens a draft pull request with one `Closes #N` per id and reads it back. Run it from a branch off the default branch, in its own worktree.
 - It refuses on the default branch, when another open pull request closes one of the ids, when an id is not an open issue, and when there are staged changes.
+- Two sessions that claim an id at the same moment both pass that check, so the command reads the open pull requests once more after it opened its own. The pull request opened first, the one with the lower number, keeps the id. The later one releases it, closes its draft when nothing is left, and fails with `lost #N to PR #M`: run `roadmap` and propose again. The earlier one is told that `PR #M claims #N as well`; if `roadmap` still shows both after that, tell the owner.
+- A draft whose only commit is the claim's own is printed with `nothing pushed since the claim`. Stale and like that, it holds no work: the report says to close it, not to pick it up.
 - CI skips drafts (the `PR title` check does not): `gh pr ready` starts it, so run the tests locally until then.
 
 ## Pitfalls
@@ -73,6 +75,18 @@ roadmap claim 170 171 --type feat --title "feat(accounts): link an insurer"
 6. A cancelled run with no newer one is rerun once: `gh run rerun <run id>`. If that one is cancelled too, tell the owner and stop.
 7. Never `git push --force`, and never `gh pr merge --admin`: those are the owner's.
 
+## Overlap
+
+```
+roadmap overlap
+roadmap overlap src/Accounts docs/accounts.md
+```
+
+- Without paths it compares what this checkout changes against `origin/<default branch>`, committed or not and untracked files too, with the files of every other open pull request, wherever that one is to merge. With paths it compares those instead, a directory standing for everything under it: that is the form for before the work starts.
+- It prints the pull requests that share a file, what each claims and the files, `2 of 9` being two shared of the nine it changes. A renamed file counts under both its names.
+- It reads the thirty most recently updated pull requests and the first hundred files of each, and says so where there were more (`+2 not read`, `100 of 100 or more`).
+- A shared file is no conflict yet. It says who to read before you mark your work ready, and that the second of the two to merge takes the default branch in first.
+
 ## What the snapshot can and cannot see
 
 The adapter asks GitHub's REST API only, because a cloud session's GitHub proxy refuses GraphQL queries of its own. What follows from that:
@@ -81,6 +95,9 @@ The adapter asks GitHub's REST API only, because a cloud session's GitHub proxy 
 - A pull request from a fork is not a claim, since anyone can open one, and one into another branch than the default is not either, since GitHub links no issue for it. The roadmap says which of the two it is, and for the second how to retarget it.
 - Blockers are read from GitHub's dependencies: the first twenty initiatives, the first ten bugs and, of the open sub-issues that wait for something, the first twenty. A blocked sub-issue beyond those is still printed as blocked, with `1 not read` where its blocker would be. A blocker in another repository is printed with that repository's name (`owner/name#N`), and no pull request of this repository counts as a claim on it.
 - Every open issue labelled `bug`, `decision`, `enhancement` or `debt` is read to be counted, a hundred a request, one request after another. A label with many hundreds of open issues can take the snapshot past its five seconds; it then says `ROADMAP UNAVAILABLE` and why.
+- A claim's idle time is counted from the pull request's `updated_at`, which a push, a comment and an edit of the description all move. It is stale after `staleAfterHours` of `.roadmap.json`, 168 where the file does not say.
+- Whether anything was pushed since the claim is asked only of drafts that close something, the first twenty of them. Any other claim carries no such mark.
+- What changed since the last look is worked out from one line for each item, kept in the checkout's git directory (`roadmap-seen.json`, never in the work tree). It is the checkout's last look, whoever looked: a subagent that runs `roadmap` there uses it up for the session. The tables are whole either way.
 - "Closed by hand, not by a merged PR" is judged against the 100 most recently updated closed pull requests. A slice closed before the oldest of them is not judged.
 
 In a cloud session the proxy also refuses `reprioritizeSubIssue` and other GraphQL of your own: ask the owner to move a slice, or do it from a local session. `gh issue list` and `gh pr view --json` are GraphQL too; `gh api repos/{owner}/{repo}/...` is the REST route.
