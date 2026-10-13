@@ -11,16 +11,18 @@ setup() { (cd "$P" && bash "$ROADMAP" setup "$@" 2>&1); }
 out=$(setup github </dev/null)
 check "without an answer nothing is written" "" "$(cd "$P" && ls -A | grep -v '^\.git$')"
 check "…and nothing is created" "" "$(grep 'POST' "$GH_STUB_LOG")"
-contains "…and each change was asked about" "Write .roadmap.json (backend: github)? [y/N]" "$out"
+contains "…and each change was asked about" "Write .roadmap.json (backend: github; practices: none)? [y/N]" "$out"
 
 out=$(setup github --yes)
 check ".roadmap.json opts the project in" github "$(jq -r .backend "$P/.roadmap.json")"
-check "the missing labels are created, the present one is not" "initiative slice debt" "$(grep 'POST' "$GH_STUB_LOG" | grep -o 'name=[a-z]*' | sed 's/name=//' | paste -sd' ' -)"
+check "the missing labels are created, the present one is not" "initiative slice debt enhancement decision" "$(grep 'POST' "$GH_STUB_LOG" | grep -o 'name=[a-z]*' | sed 's/name=//' | paste -sd' ' -)"
 W="$P/.github/workflows/pr-title.yml"
 contains "the workflow carries the types" "pattern='^(feat|fix|refactor|perf|docs|test|build|ci|chore)\\([a-z0-9-]+\\): .*[^ ]\$'" "$(cat "$W")"
 check "…and no placeholder is left" 0 "$(grep -c '__' "$W")"
 check "the permissions are written" '["Bash(git add *)","Bash(git commit *)","Bash(git push *)","Bash(gh pr ready *)"]' "$(jq -c .permissions.allow "$P/.claude/settings.json")"
 check "…with force pushes under ask" 6 "$(jq '.permissions.ask | length' "$P/.claude/settings.json")"
+check "--yes takes three practices and leaves merge out" '["findings","ready","stacking"]' "$(jq -c .practices "$P/.roadmap.json")"
+check "…so the permissions to merge are not added" false "$(jq '.permissions.allow | any(. == "Bash(gh pr merge *)")' "$P/.claude/settings.json")"
 contains "the required check is printed, not run" "gh api -X POST repos/example/enzure/rulesets" "$out"
 check "…" "" "$(grep rulesets "$GH_STUB_LOG")"
 
@@ -78,4 +80,25 @@ printf '{"permissions": {"allow": ["Bash(git push --force*)"]}}\n' >"$S"
 out=$(setup --yes)
 check "a force push the project allows is not put under ask" false "$(jq '.permissions.ask | any(. == "Bash(git push --force*)")' "$S")"
 contains "…and that is reported" "Left under allow, where the project put them: Bash(git push --force*)." "$out"
+fresh() { checkout "$SCRATCH/$1"; (cd "$SCRATCH/$1" && shift && bash "$ROADMAP" setup "$@" 2>&1); }
+out=$(fresh named github --yes --practices findings,merge)
+check "--practices names them outright" '["findings","merge"]' "$(jq -c .practices "$SCRATCH/named/.roadmap.json")"
+check "merge adds the permissions to merge" true "$(jq '.permissions.allow | any(. == "Bash(gh pr merge *)") and any(. == "Bash(gh run rerun *)")' "$SCRATCH/named/.claude/settings.json")"
+check "…and asks on a merge past the checks" true "$(jq '.permissions.ask | any(. == "Bash(gh pr merge * --admin*)") and any(. == "Bash(gh pr merge --admin*)")' "$SCRATCH/named/.claude/settings.json")"
+contains "…and says so when it asks" "gh pr merge and gh run rerun" "$(fresh told github --practices merge </dev/null)"
+fresh none github --yes --practices '' >/dev/null
+check "--practices '' is a project with none" '[]' "$(jq -c .practices "$SCRATCH/none/.roadmap.json")"
+contains "an unknown practice is refused" "there is no practice 'mrege'; the practices are findings, ready, stacking and merge" "$(fresh typo github --yes --practices findings,mrege)"
+check "…before anything is written" no "$([ -e "$SCRATCH/typo/.roadmap.json" ] && echo yes || echo no)"
+contains "--practices needs its list" "usage: roadmap setup [--yes] [--practices <a,b,...>]" "$(fresh bare github --practices)"
+checkout "$SCRATCH/asked"
+out=$(cd "$SCRATCH/asked" && printf 'y\nn\nn\ny\ny\n' | bash "$ROADMAP" setup github 2>&1)
+check "without --yes each practice is asked about" '["findings","merge"]' "$(jq -c .practices "$SCRATCH/asked/.roadmap.json")"
+contains "…in words" "Follow the practice 'merge' (the session that claimed a unit merges it once its checks pass)? [y/N]" "$out"
+checkout "$SCRATCH/kept"
+printf '{"backend": "github", "practices": ["merge"]}\n' >"$SCRATCH/kept/.roadmap.json"
+out=$(cd "$SCRATCH/kept" && bash "$ROADMAP" setup --yes --practices findings 2>&1)
+check "the practices of a file that is there are left as they are" '["merge"]' "$(jq -c .practices "$SCRATCH/kept/.roadmap.json")"
+contains "…and that is said" "its practices are left as they are" "$out"
+check "…and they decide the permissions" true "$(jq '.permissions.allow | any(. == "Bash(gh pr merge *)")' "$SCRATCH/kept/.claude/settings.json")"
 finish
