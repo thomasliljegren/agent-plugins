@@ -63,7 +63,7 @@ roadmap claim 170 171 --type feat --title "feat(accounts): link an insurer"
 
 ## The `merge` practice
 
-`roadmap setup` adds the permissions for `gh pr merge` and `gh run rerun` when the project names `merge`.
+`roadmap setup` adds the permissions for `gh pr merge`, `gh pr checks`, `gh pr view` and `gh run rerun` when the project names `merge`.
 
 1. After `gh pr ready N`, wait until `gh pr checks N --required --json bucket -q '.[].bucket'` prints no `skipping` line. A job that CI skips on a draft is recorded as a completed check, which a required check accepts: only the draft state held the merge. Auto-merge turned on before the new run registers merges at once.
 2. A pull request in conflict with the default branch (`gh pr view N --json mergeable` answers `CONFLICTING`) gets no run at all: merge the default branch into it first. A run that has not appeared after five minutes is started again, once: `gh pr ready N --undo`, then `gh pr ready N`. If it has not appeared five minutes after that, tell the owner and stop.
@@ -78,8 +78,8 @@ roadmap claim 170 171 --type feat --title "feat(accounts): link an insurer"
 The adapter asks GitHub's REST API only, because a cloud session's GitHub proxy refuses GraphQL queries of its own. What follows from that:
 
 - A claim is read from the closing keywords in the pull request's body, written as `Closes #N`. An issue linked by hand in the pull request's sidebar, one named by its URL or as `owner/repo#N`, or one in another repository, is not seen: GitHub closes it all the same, but the roadmap shows the branch as having no closing link.
-- A pull request from a fork is not a claim, since anyone can open one.
-- Blockers are read from GitHub's dependencies: the first twenty initiatives, the first ten bugs and, of the open sub-issues that wait for something, the first twenty. A blocked sub-issue beyond those is still printed as blocked, with `1 not read` where its blocker would be. A blocker in another repository is printed by its number alone.
+- A pull request from a fork is not a claim, since anyone can open one, and one into another branch than the default is not either, since GitHub links no issue for it. The roadmap says which of the two it is, and for the second how to retarget it.
+- Blockers are read from GitHub's dependencies: the first twenty initiatives, the first ten bugs and, of the open sub-issues that wait for something, the first twenty. A blocked sub-issue beyond those is still printed as blocked, with `1 not read` where its blocker would be. A blocker in another repository is printed with that repository's name (`owner/name#N`), and no pull request of this repository counts as a claim on it.
 - Every open issue labelled `bug`, `decision`, `enhancement` or `debt` is read to be counted, a hundred a request, one request after another. A label with many hundreds of open issues can take the snapshot past its five seconds; it then says `ROADMAP UNAVAILABLE` and why.
 - "Closed by hand, not by a merged PR" is judged against the 100 most recently updated closed pull requests. A slice closed before the oldest of them is not judged.
 

@@ -47,14 +47,21 @@ def named($kind): $config.labels[$kind] // $kind;
   # zero, and for no more than twenty sub-issues. An item that is blocked by the count and has no list says so: it is
   # never printed as free. A blocker's claims are the open pull requests that close it, like every other claim.
   def summary: .issue_dependencies_summary | need("issue_dependencies_summary");
+  # An issue named in a dependency can live in another repository. It is then printed with that repository's name, and
+  # no pull request of this one is a claim on it: the same number here is another issue.
+  def elsewhere:
+    (.repository_url // "" | sub("^.*/repos/"; "")) as $repo
+    | if $repo == "" or ($repo | ascii_downcase) == ($project | ascii_downcase) then null else $repo end;
+  def reference: elsewhere as $repo | "\($repo // "")#\(.number | need("number"))" | safe;
   def blocked_by:
     (summary.blocked_by // 0) as $count
     | $blockers[.number | tostring] as $read
     | if $read == null then (if $count > 0 then [{id: "\($count) not read", claims: []}] else [] end)
-      else [ $read[] | select((.state | need("state")) == "open") | {id: "#\(.number | need("number"))", claims: claims_of} ] end;
+      else [ $read[] | select((.state | need("state")) == "open")
+             | {id: reference, claims: (if elsewhere == null then claims_of else [] end)} ] end;
   def blocks:
     summary as $summary
-    | [ ($blocking[.number | tostring] // [])[] | select((.state | need("state")) == "open") | "#\(.number | need("number"))" ];
+    | [ ($blocking[.number | tostring] // [])[] | select((.state | need("state")) == "open") | reference ];
   def state:
     if (.state | need("state")) != "closed" then "open"
     elif .state_reason == "not_planned" or .state_reason == "duplicate" then "dropped"
@@ -77,12 +84,17 @@ def named($kind): $config.labels[$kind] // $kind;
   def decision: {id: "#\(.number | need("number"))", title: (.title | need("title") | safe), blocks: blocks};
   def listed($kind): "gh issue list --label \(named($kind))";
   def idle_days: (($now - (.updated_at | need("updated_at") | fromdateiso8601)) / 86400) | floor;
+  # Why a pull request claims nothing, and what puts that right: a keyword is no help to one from a fork or into another branch.
+  def unclaimed:
+    if (.head.repo.full_name // $project) != $project then {note: "from a fork: it claims nothing", fix: null}
+    elif (.base.ref | need("base")) != $default then
+      {note: "into \(.base.ref | safe), not \($default): it claims nothing", fix: "gh pr edit \(.number | need("number")) --base \($default)"}
+    else {note: "no closing link: it claims nothing", fix: "put Closes #N in its body"} end;
   def claim:
     linked as $closes
+    | (if ($closes | length) == 0 then unclaimed else {note: null, fix: null} end) as $why
     | { id: "PR #\(.number | need("number"))", ref: (.head.ref | need("head") | safe), tentative: (.draft | need("draft")),
-        idleDays: idle_days, items: ($closes | map("#\(.)")),
-        note: (if ($closes | length) == 0 then "no closing link: it claims nothing" else null end),
-        fix: (if ($closes | length) == 0 then "put Closes #N in its body" else null end) };
+        idleDays: idle_days, items: ($closes | map("#\(.)")), note: $why.note, fix: $why.fix };
   def here:
     (.branchPrs | need("branchPrs") | .[0]) as $pr
     | {branch: ($branch | safe), claim: null, tentative: false, items: []}

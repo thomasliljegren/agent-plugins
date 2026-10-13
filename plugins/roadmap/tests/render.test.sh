@@ -39,7 +39,7 @@ check "the suggestions, in the order of the rules" "$(cat <<'TEXT'
 3. Answer decision #30.
 4. PR #33 claims nothing: put Closes #N in its body.
 5. Pick up or close PR #35, idle 13 days: it holds #18.
-6. PR #37 claims nothing: put Closes #N in its body.
+6. PR #37 claims nothing: gh pr edit 37 --base main.
 7. Take #45, then #46: next in #43, which has 3 open.
 8. Take #16, then #41: next in #12, which has 5 open.
 9. Fix a bug nobody has claimed: #71, #72, #73 and #74.

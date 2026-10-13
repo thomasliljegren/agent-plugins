@@ -104,4 +104,14 @@ contains "an answer without the decisions fails loudly" "the GitHub answer has n
 check "a blocker's claim is not one from a fork" '[]' "$(mod '.openPrs[0].head.repo = {full_name: "stranger/enzure"}' | jq -c '.initiatives[0].slices[1].blockedBy[0].claims')"
 check "a blocked item whose blockers were not read says how many" '[{"id":"2 not read","claims":[]}]' \
   "$(mod '.subIssues["43"][1].issue_dependencies_summary.blocked_by = 2' | jq -c '.initiatives[5].slices[1].blockedBy')"
+check "a blocker in another repository is named with it, and no pull request of ours claims it" '[{"id":"other/place#15","claims":[]}]' \
+  "$(mod '.blockedBy["17"] = [{number: 15, state: "open", repository_url: "https://api.github.com/repos/other/place"}]' | jq -c '.initiatives[0].slices[1].blockedBy')"
+check "a blocker named with this repository's own address is ours" '[{"id":"#15","claims":["PR #31"]}]' \
+  "$(mod '.blockedBy["17"][0].repository_url = "https://api.github.com/repos/Example/Enzure"' | jq -c '.initiatives[0].slices[1].blockedBy')"
+check "what a decision blocks in another repository is named with it" '["#17","other/place#41"]' \
+  "$(mod '.blocking["28"][2].repository_url = "https://api.github.com/repos/other/place"' | jq -c '.other[1].items[0].blocks')"
+check "a pull request into another branch says so, and how to put it right" '["into feat/17-pallet-stays, not main: it claims nothing","gh pr edit 37 --base main"]' \
+  "$(q '.claims[] | select(.id == "PR #37") | [.note, .fix]')"
+check "a pull request from a fork says so, and there is nothing to put right" '["from a fork: it claims nothing",null]' \
+  "$(mod '.openPrs[0].head.repo = {full_name: "stranger/enzure"}' | jq -c '.claims[0] | [.note, .fix]')"
 finish

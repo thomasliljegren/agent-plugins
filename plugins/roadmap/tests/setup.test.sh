@@ -85,7 +85,8 @@ out=$(fresh named github --yes --practices findings,merge)
 check "--practices names them outright" '["findings","merge"]' "$(jq -c .practices "$SCRATCH/named/.roadmap.json")"
 check "merge adds the permissions to merge" true "$(jq '.permissions.allow | any(. == "Bash(gh pr merge *)") and any(. == "Bash(gh run rerun *)")' "$SCRATCH/named/.claude/settings.json")"
 check "…and asks on a merge past the checks" true "$(jq '.permissions.ask | any(. == "Bash(gh pr merge * --admin*)") and any(. == "Bash(gh pr merge --admin*)")' "$SCRATCH/named/.claude/settings.json")"
-contains "…and says so when it asks" "gh pr merge and gh run rerun" "$(fresh told github --practices merge </dev/null)"
+check "…and to read the checks and the pull request, which merging by the rules takes" true "$(jq '.permissions.allow | any(. == "Bash(gh pr checks *)") and any(. == "Bash(gh pr view *)")' "$SCRATCH/named/.claude/settings.json")"
+contains "…and says so when it asks" "gh pr merge, gh pr checks, gh pr view and gh run rerun" "$(fresh told github --practices merge </dev/null)"
 fresh none github --yes --practices '' >/dev/null
 check "--practices '' is a project with none" '[]' "$(jq -c .practices "$SCRATCH/none/.roadmap.json")"
 contains "an unknown practice is refused" "there is no practice 'mrege'; the practices are findings, ready, stacking and merge" "$(fresh typo github --yes --practices findings,mrege)"
@@ -105,4 +106,6 @@ checkout "$SCRATCH/odd"
 printf '{"backend": "github", "practices": ["no merge here"]}\n' >"$SCRATCH/odd/.roadmap.json"
 (cd "$SCRATCH/odd" && bash "$ROADMAP" setup --yes >/dev/null 2>&1)
 check "a name that only contains the word merge grants nothing" false "$(jq '.permissions.allow | any(. == "Bash(gh pr merge *)")' "$SCRATCH/odd/.claude/settings.json")"
+fresh twice github --yes --practices merge,findings,merge >/dev/null
+check "a practice named twice is written once" '["merge","findings"]' "$(jq -c .practices "$SCRATCH/twice/.roadmap.json")"
 finish

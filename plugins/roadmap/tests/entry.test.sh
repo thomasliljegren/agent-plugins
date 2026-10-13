@@ -35,6 +35,7 @@ check "an empty list: no sentence" "" "$(practised '[]' | grep 'Practices here')
 contains "a name without a page is said" "Practices here: findings (pages of the roadmap skill); unknown: mrege." "$(practised '["findings", "mrege"]')"
 contains "a member that is no list is said too" 'Practices here: none; unknown: "merge".' "$(practised '"merge"')"
 contains "a name is never a path" "Practices here: none; unknown: ../../../README." "$(practised '["../../../README"]')"
+contains "a name with capitals is unknown, whatever the locale" "Practices here: none; unknown: Findings." "$(LC_ALL=en_US.UTF-8 practised '["Findings"]')"
 check "the report carries no such sentence" "" "$(run --report | grep 'Practices here')"
 opt_in "$P" '{"backend": "adapters/good", "practices": []}'
 check "an unknown option is a usage error" 2 "$(run --nope >/dev/null; echo $?)"

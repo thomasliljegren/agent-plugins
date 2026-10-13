@@ -75,6 +75,7 @@ blocked=$( { jq -r "$issues | .[:20][] | $waits" "$tmp/initiatives.json" && jq -
   || unavailable "GitHub's dependency counts could not be read"
 holding=$(jq -r "$issues | .[:10][] | select((.issue_dependencies_summary.blocking // 0) > 0) | .number" "$tmp/decisions.all" 2>/dev/null) \
   || unavailable "GitHub's list of decisions could not be read"
+blocked=$(printf '%s\n' $blocked | sort -un)   # an issue can be an initiative and a bug: one request, one file
 for number in $wanted; do get "subs/$number" "$api/issues/$number/sub_issues" -f per_page=50; done
 for number in $blocked; do get "blockedBy/$number" "$api/issues/$number/dependencies/blocked_by" -f per_page=100; done
 for number in $holding; do get "blocking/$number" "$api/issues/$number/dependencies/blocking" -f per_page=100; done

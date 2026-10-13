@@ -47,7 +47,7 @@ The core rules are the same everywhere: start from the snapshot, propose a workl
 | `findings` | What is found on the way is fixed, filed or dropped, and what an item of each kind must name before it is filed. |
 | `ready` | What must hold before work is marked ready: checks green locally, a review of the whole change, a description that says what changed and how it was tested. |
 | `stacking` | Units that build on each other, and what to do with a slice that does not fit a session. |
-| `merge` | The session that claimed a unit merges it once it is ready and its checks pass. Not a default: `roadmap setup --practices findings,ready,stacking,merge` names it in a new project, and adds the permissions for `gh pr merge` and `gh run rerun`. |
+| `merge` | The session that claimed a unit merges it once it is ready and its checks pass. Not a default: `roadmap setup --practices findings,ready,stacking,merge` names it in a new project, and adds the permissions for `gh pr merge`, `gh pr checks`, `gh pr view` and `gh run rerun`. |
 
 A project that already has `.roadmap.json` changes its practices by editing the list there, and runs `roadmap setup` again when it adds `merge`, for the permissions. `"practices": []` is a project with the core rules only. The pages are `skills/roadmap/practices/<name>.md`; what each needs on GitHub is in `skills/roadmap/references/github.md`.
 

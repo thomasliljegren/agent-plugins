@@ -6,7 +6,7 @@ REPO=$(cd "$ROOT/../.." && pwd)
 M="$ROOT/.claude-plugin/plugin.json"
 check "the manifest parses" 0 "$(jq -e . "$M" >/dev/null 2>&1; echo $?)"
 check "the plugin is named roadmap" roadmap "$(jq -r .name "$M")"
-check "version is 0.2.0" 0.2.0 "$(jq -r .version "$M")"
+check "version is 0.2.1" 0.2.1 "$(jq -r .version "$M")"
 check "the manifest uses the default hooks/hooks.json" null "$(jq -r .hooks "$M")"
 entry=$(jq -c '.plugins[] | select(.name == "roadmap")' "$REPO/.claude-plugin/marketplace.json")
 check "the marketplace lists the plugin" ./plugins/roadmap "$(jq -r .source <<<"$entry")"
