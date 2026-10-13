@@ -31,6 +31,13 @@ for adapter in "$ROOT"/adapters/*/; do
 done
 check "the skill is backend-neutral" "" "$(grep -n -i -E 'github|pull request|(^|[^a-z])gh ' "$S" || true)"
 
+for practice in findings ready stacking merge; do
+  page="$ROOT/skills/roadmap/practices/$practice.md"
+  check "the practice $practice has its page" yes "$([ -f "$page" ] && echo yes)"
+  check "…which is backend-neutral" "" "$(grep -n -i -E 'github|pull request|(^|[^a-z])gh ' "$page" 2>/dev/null || true)"
+  check "…and starts with its name" 1 "$(sed -n 1p "$page" 2>/dev/null | grep -c '^# Practice: ')"
+done
+
 # The contract page's example is a state document that holds the contract and renders.
 example=$(awk '/^```json/{p=1; next} /^```/{p=0} p' "$ROOT/skills/roadmap/references/adapter-contract.md")
 check "the contract page's example holds the contract" "" "$(jq -r -f "$ROOT/scripts/contract.jq" <<<"$example")"

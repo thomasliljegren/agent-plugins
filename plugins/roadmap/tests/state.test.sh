@@ -4,7 +4,7 @@
 
 P="$SCRATCH/project"
 checkout "$P" claude/explainable-dropoff-1a2b3c
-opt_in "$P" '{"backend": "github", "rules": "CLAUDE.md"}'
+opt_in "$P" '{"backend": "github", "rules": "CLAUDE.md", "practices": []}'
 stub_gh "$DATA/busy.raw.json"
 run() { (cd "$P" && bash "$ROADMAP" "$@" 2>&1); }
 
@@ -24,7 +24,7 @@ contains "the branch's pull request is asked by owner and branch" "head=example:
 
 stub_gh "$DATA/leftover.raw.json"
 git -C "$P" checkout -q -b claude/pr-title-format-ci-eea340
-opt_in "$P"
+opt_in "$P" '{"backend": "github", "practices": []}'
 check "end to end: a leftover worktree" "$(cat "$DATA/leftover.expected.txt")" "$(run)"
 
 opt_in "$P" '{"backend": "github", "github": {"labels": {"bug": "defect"}}}'
