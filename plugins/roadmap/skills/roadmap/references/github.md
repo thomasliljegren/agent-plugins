@@ -75,11 +75,12 @@ roadmap claim 170 171 --type feat --title "feat(accounts): link an insurer"
 
 ## What the snapshot can and cannot see
 
-The adapter asks GitHub's REST API only, because a cloud session's GitHub proxy refuses GraphQL queries of its own. Two consequences:
+The adapter asks GitHub's REST API only, because a cloud session's GitHub proxy refuses GraphQL queries of its own. What follows from that:
 
 - A claim is read from the closing keywords in the pull request's body, written as `Closes #N`. An issue linked by hand in the pull request's sidebar, one named by its URL or as `owner/repo#N`, or one in another repository, is not seen: GitHub closes it all the same, but the roadmap shows the branch as having no closing link.
 - A pull request from a fork is not a claim, since anyone can open one.
-- Blockers are read from GitHub's dependencies: the first twenty initiatives, their open sub-issues and the first ten bugs. A blocker in another repository is printed by its number alone.
+- Blockers are read from GitHub's dependencies: the first twenty initiatives, the first ten bugs and, of the open sub-issues that wait for something, the first twenty. A blocked sub-issue beyond those is still printed as blocked, with `1 not read` where its blocker would be. A blocker in another repository is printed by its number alone.
+- Every open issue labelled `bug`, `decision`, `enhancement` or `debt` is read to be counted, a hundred a request, one request after another. A label with many hundreds of open issues can take the snapshot past its five seconds; it then says `ROADMAP UNAVAILABLE` and why.
 - "Closed by hand, not by a merged PR" is judged against the 100 most recently updated closed pull requests. A slice closed before the oldest of them is not judged.
 
 In a cloud session the proxy also refuses `reprioritizeSubIssue` and other GraphQL of your own: ask the owner to move a slice, or do it from a local session. `gh issue list` and `gh pr view --json` are GraphQL too; `gh api repos/{owner}/{repo}/...` is the REST route.

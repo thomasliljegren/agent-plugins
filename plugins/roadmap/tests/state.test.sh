@@ -54,4 +54,26 @@ checkout "$SCRATCH/plain" feat/x; opt_in "$SCRATCH/plain"; stub_gh "$SCRATCH/pla
 plain=$(cd "$SCRATCH/plain" && bash "$ROADMAP" 2>&1)
 contains "a project that uses none of the new labels" "DECISIONS FOR THE OWNER: none open" "$plain"
 check "…makes no request for dependencies" "" "$(grep dependencies "$GH_STUB_LOG" || true)"
+paged() { (cd "$SCRATCH/paged" && bash "$ROADMAP" "$@" 2>&1); }
+stub_gh "$DATA/busy.raw.json"
+unavailable "a blocker list that cannot be read fails the whole answer" "GitHub's blockers could not be read" "$(GH_STUB_GARBAGE_ON=/dependencies/blocked_by paged)"
+unavailable "…and one that is no list" "GitHub's blockers could not be read" "$(GH_STUB_GARBAGE_ON=/dependencies/blocked_by GH_STUB_GARBAGE='{}' paged)"
+unavailable "…and what a decision blocks" "GitHub's answer on what the decisions block could not be read" "$(GH_STUB_GARBAGE_ON=/dependencies/blocking paged)"
+
+# Twenty-five open slices that each wait for another: the third round stays small, and none of them turns into next.
+jq '.subIssues["43"] = [range(1; 26) | {number: (400 + .), title: "s\(.)", state: "open", state_reason: null, closed_at: null,
+                                         labels: [{name: "slice"}], issue_dependencies_summary: {blocked_by: 1, blocking: 0}}]
+    | .initiatives[5].sub_issues_summary.total = 25
+    | .blockedBy += ([range(1; 26) | {key: "\(400 + .)", value: [{number: 15, state: "open"}]}] | from_entries)' "$DATA/busy.raw.json" >"$SCRATCH/chained.raw.json"
+stub_gh "$SCRATCH/chained.raw.json"
+chained=$(paged --state)
+check "the blockers of at most twenty sub-issues are asked for" "17 18 401-418" \
+  "$(grep -o 'issues/[0-9]*/dependencies/blocked_by' "$GH_STUB_LOG" | grep -o '[0-9]*' | sort -nu | grep -v -e '^22$' -e '^27$' | awk 'NR <= 2 {printf "%s ", $0; next} NR == 3 {first = $0} {last = $0} END {print first "-" last}')"
+check "…a slice whose blockers were read names them" '[{"id":"#15","claims":["PR #31"]}]' "$(jq -c '.initiatives[5].slices[0].blockedBy' <<<"$chained")"
+check "…and the rest are still blocked, their blockers not read" '[{"id":"1 not read","claims":[]}]' "$(jq -c '.initiatives[5].slices[24].blockedBy' <<<"$chained")"
+check "…so none of them is next" "" "$(paged | grep -E '#4[0-9][0-9] .* next$')"
+# All the sub-issues together are passed on in a file: as an argument they stop at the size a command line carries.
+jq '.subIssues["43"] |= map(. + {body: ("x" * 400000)})' "$DATA/busy.raw.json" >"$SCRATCH/large.raw.json"
+stub_gh "$SCRATCH/large.raw.json"
+check "sub-issues larger than a command line carries are still read" '"#47"' "$(paged --state | jq -c '.initiatives[5].slices[3].id' 2>&1)"
 finish

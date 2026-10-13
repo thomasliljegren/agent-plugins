@@ -83,23 +83,32 @@ settle
 # A sub-issue's blockers can be asked for only once the sub-issues are known. A closed one waits for nothing.
 later=$(for number in $wanted; do jq -r ".[] | select(.state == \"open\") | $waits" "$tmp/subs/$number.json" || exit 1; done 2>/dev/null) \
   || unavailable "GitHub's sub-issues could not be read"
+# Twenty lists keep the third round well inside the time limit. A blocked slice beyond them is still blocked, and
+# normalize.jq says that its blockers were not read.
+later=$(printf '%s\n' $later | head -n 20)
 for number in $later; do get "blockedBy/$number" "$api/issues/$number/dependencies/blocked_by" -f per_page=100; done
 settle
 
-gathered() {  # gathered DIR NUMBERS...: {"<number>": GitHub's answer for it}
+# gathered DIR NUMBERS...: writes $tmp/DIR.all, {"<number>": GitHub's answer for it}. An answer that is no list fails:
+# a gateway's page read as "no blockers" would print a roadmap with nothing blocked. Into a file, since the answers
+# together can be larger than a command line carries.
+gathered() {
   local dir=$1 number; shift
-  for number in "$@"; do jq --arg number "$number" '{($number): .}' "$tmp/$dir/$number.json"; done | jq -s 'add // {}'
+  for number in "$@"; do
+    jq -c --arg number "$number" 'if type == "array" then {($number): .} else error("not a list") end' "$tmp/$dir/$number.json" || return 1
+  done >"$tmp/$dir.parts" 2>/dev/null
+  jq -s 'add // {}' "$tmp/$dir.parts" >"$tmp/$dir.all" 2>/dev/null
 }
-subs=$(gathered subs $wanted) || unavailable "GitHub's sub-issues could not be read"
-blockers=$(gathered blockedBy $blocked $later) || unavailable "GitHub's blockers could not be read"
-blocking=$(gathered blocking $holding) || unavailable "GitHub's answer on what the decisions block could not be read"
+gathered subs $wanted || unavailable "GitHub's sub-issues could not be read"
+gathered blockedBy $blocked $later || unavailable "GitHub's blockers could not be read"
+gathered blocking $holding || unavailable "GitHub's answer on what the decisions block could not be read"
 
 state=$(jq -n --slurpfile repo "$tmp/repo.json" --slurpfile initiatives "$tmp/initiatives.json" \
     --slurpfile openPrs "$tmp/openPrs.all" --slurpfile closedPrs "$tmp/closedPrs.json" \
     --slurpfile bugs "$tmp/bugs.all" --slurpfile decisions "$tmp/decisions.all" --slurpfile enhancements "$tmp/enhancements.all" \
     --slurpfile debt "$tmp/debt.all" --slurpfile branchPrs "$tmp/branchPrs.json" \
-    --argjson subs "$subs" --argjson blockers "$blockers" --argjson blocking "$blocking" \
-    '{repo: $repo[0], initiatives: $initiatives[0], subIssues: $subs, blockedBy: $blockers, blocking: $blocking,
+    --slurpfile subs "$tmp/subs.all" --slurpfile blockers "$tmp/blockedBy.all" --slurpfile blocking "$tmp/blocking.all" \
+    '{repo: $repo[0], initiatives: $initiatives[0], subIssues: $subs[0], blockedBy: $blockers[0], blocking: $blocking[0],
       openPrs: $openPrs[0], closedPrs: $closedPrs[0], bugs: $bugs[0], decisions: $decisions[0], enhancements: $enhancements[0],
       debt: $debt[0], branchPrs: $branchPrs[0]}' \
   | jq -L "$adapter" -f "$adapter/normalize.jq" --arg project "$slug" --arg branch "$branch" --argjson now "$now" --argjson config "$config" 2>&1) \

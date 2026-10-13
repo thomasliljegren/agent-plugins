@@ -44,12 +44,14 @@ def named($kind): $config.labels[$kind] // $kind;
 | ([$initiatives[], $subs[][], $bugs[], $decisions[], $enhancements[], $debt[]] | map({key: (.number | tostring), value: .title}) | from_entries) as $titles
 | def claims_of: (.number | need("number")) as $n | [$links[] | select(.closes | any(. == $n)) | .id];
   # GitHub counts an issue's open blockers in its summary, and `state` asks for the list only where that count is above
-  # zero. A blocker's claims are the open pull requests that close it, like every other claim.
+  # zero, and for no more than twenty sub-issues. An item that is blocked by the count and has no list says so: it is
+  # never printed as free. A blocker's claims are the open pull requests that close it, like every other claim.
   def summary: .issue_dependencies_summary | need("issue_dependencies_summary");
   def blocked_by:
-    summary as $summary
-    | [ ($blockers[.number | tostring] // [])[] | select((.state | need("state")) == "open")
-        | {id: "#\(.number | need("number"))", claims: claims_of} ];
+    (summary.blocked_by // 0) as $count
+    | $blockers[.number | tostring] as $read
+    | if $read == null then (if $count > 0 then [{id: "\($count) not read", claims: []}] else [] end)
+      else [ $read[] | select((.state | need("state")) == "open") | {id: "#\(.number | need("number"))", claims: claims_of} ] end;
   def blocks:
     summary as $summary
     | [ ($blocking[.number | tostring] // [])[] | select((.state | need("state")) == "open") | "#\(.number | need("number"))" ];

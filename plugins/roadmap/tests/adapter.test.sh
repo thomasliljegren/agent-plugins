@@ -102,4 +102,6 @@ contains "an issue without its dependency summary fails loudly" "the GitHub answ
   "$(mod 'del(.bugs[0].issue_dependencies_summary)' 2>&1)"
 contains "an answer without the decisions fails loudly" "the GitHub answer has no decisions" "$(mod 'del(.decisions)' 2>&1)"
 check "a blocker's claim is not one from a fork" '[]' "$(mod '.openPrs[0].head.repo = {full_name: "stranger/enzure"}' | jq -c '.initiatives[0].slices[1].blockedBy[0].claims')"
+check "a blocked item whose blockers were not read says how many" '[{"id":"2 not read","claims":[]}]' \
+  "$(mod '.subIssues["43"][1].issue_dependencies_summary.blocked_by = 2' | jq -c '.initiatives[5].slices[1].blockedBy')"
 finish

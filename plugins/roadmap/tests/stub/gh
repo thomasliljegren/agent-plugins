@@ -3,6 +3,7 @@
 #   GH_STUB_SLEEP     seconds to wait before answering
 #   GH_STUB_FAIL      fail every api call with this message
 #   GH_STUB_FAIL_ON   fail only the calls whose arguments contain this text
+#   GH_STUB_GARBAGE_ON answer the calls whose arguments contain this text with $GH_STUB_GARBAGE (a gateway's page), exit 0
 #   GH_STUB_BRANCH_PR a file: a pull request opened with POST is written there, and is then the branch's open pull request
 echo "gh $*" >>"${GH_STUB_LOG:-/dev/null}"
 raw=$GH_STUB_RAW
@@ -16,6 +17,7 @@ if [ "$*" = "auth token" ]; then echo stub-token; exit 0; fi
 [ -z "${GH_STUB_SLEEP:-}" ] || sleep "$GH_STUB_SLEEP"
 if [ -n "${GH_STUB_FAIL:-}" ]; then echo "gh: $GH_STUB_FAIL" >&2; exit 1; fi
 case "$*" in *"${GH_STUB_FAIL_ON:-<never>}"*) echo "gh: Server Error (HTTP 502)" >&2; exit 1 ;; esac
+case "$*" in *"${GH_STUB_GARBAGE_ON:-<never>}"*) printf '%s\n' "${GH_STUB_GARBAGE:-<html>gateway</html>}"; exit 0 ;; esac
 case "$*" in
   "api -X POST "*"/pulls "*)
     jq -n --arg title "$(field title "$@")" --arg body "$(field body "$@")" --arg head "$(field head "$@")" --arg base "$(field base "$@")" \

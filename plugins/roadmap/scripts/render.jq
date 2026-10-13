@@ -60,7 +60,8 @@ def pad($width): if length < $width then . + (" " * ($width - length)) else . en
 def widths: . as $rows | [range(0; $rows[0] | length) as $i | $rows | map(.[$i] | length) | max];
 def aligned($indent): widths as $w
   | map(. as $row | $indent + ([range(0; $row | length) as $i | $row[$i] | pad($w[$i])] | join("  ")) | sub(" +$"; ""));
-def cell: gsub("\\|"; "\\|");
+# A backslash before a | would unescape it, and a title could then end its cell and write the next one.
+def cell: gsub("\\\\"; "\\\\") | gsub("\\|"; "\\|");
 def markdown: map(map(cell)) | (widths | map([., 3] | max)) as $w
   | def line: . as $row | "| " + ([range(0; $row | length) as $i | $row[$i] | pad($w[$i])] | join(" | ")) + " |";
     [(.[0] | line), "|" + ($w | map("-" * (. + 2)) | join("|")) + "|", (.[1:][] | line)];

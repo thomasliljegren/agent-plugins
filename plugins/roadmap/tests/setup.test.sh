@@ -101,4 +101,8 @@ out=$(cd "$SCRATCH/kept" && bash "$ROADMAP" setup --yes --practices findings 2>&
 check "the practices of a file that is there are left as they are" '["merge"]' "$(jq -c .practices "$SCRATCH/kept/.roadmap.json")"
 contains "…and that is said" "its practices are left as they are" "$out"
 check "…and they decide the permissions" true "$(jq '.permissions.allow | any(. == "Bash(gh pr merge *)")' "$SCRATCH/kept/.claude/settings.json")"
+checkout "$SCRATCH/odd"
+printf '{"backend": "github", "practices": ["no merge here"]}\n' >"$SCRATCH/odd/.roadmap.json"
+(cd "$SCRATCH/odd" && bash "$ROADMAP" setup --yes >/dev/null 2>&1)
+check "a name that only contains the word merge grants nothing" false "$(jq '.permissions.allow | any(. == "Bash(gh pr merge *)")' "$SCRATCH/odd/.claude/settings.json")"
 finish

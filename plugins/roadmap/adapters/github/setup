@@ -61,7 +61,7 @@ if [ -f "$file" ]; then
   config=$(jq -c '.github // {}' "$file" 2>/dev/null) || die ".roadmap.json is not valid JSON"
   [ "$chosen" = false ] || echo "  its practices are left as they are; --practices is for a new file."
   practices=$(jq -r 'if has("practices") then .practices else ["findings", "ready", "stacking"] end
-                     | if type == "array" then map(strings) | join(" ") else "" end' "$file")
+                     | if type == "array" then map(strings | select(test("^[a-z0-9-]+$"))) | join(" ") else "" end' "$file")
 else
   if [ "$chosen" = false ]; then
     for name in $every; do

@@ -56,6 +56,8 @@ example=$(awk '/^```json/{p=1; next} /^```/{p=0} p' "$ROOT/skills/roadmap/refere
 check "the contract page's example holds the contract" "" "$(jq -r -f "$ROOT/scripts/contract.jq" <<<"$example")"
 contains "…and renders" "THIS BRANCH: feat/170-link-insurer -> no pull request." \
   "$(jq -r -f "$ROOT/scripts/render.jq" --arg format snapshot --argjson now "$ROADMAP_NOW" --arg rules "" --arg practices "" <<<"$example" 2>&1)"
+contains "the contract page shows a note's line as it is printed" "unlabelled: #13, #16 (" "$(cat "$ROOT/skills/roadmap/references/adapter-contract.md")"
+contains "the report command says what the report holds" "decisions" "$(sed -n 2p "$ROOT/commands/report.md")"
 for state in default-branch detached unclaimed claimed merged closed unlinked unknown; do
   contains "the contract page names the state $state" "\`$state\`" "$(cat "$ROOT/skills/roadmap/references/adapter-contract.md")"
 done

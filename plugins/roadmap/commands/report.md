@@ -1,5 +1,5 @@
 ---
-description: The roadmap of this project, live from its tracker (initiatives, every open slice, bugs, debt and claims)
+description: The roadmap of this project, live from its tracker (initiatives, every open slice, bugs, decisions, claims and what to take next)
 allowed-tools: Bash(bash *)
 ---
 !`bash "${CLAUDE_PLUGIN_ROOT}/bin/roadmap" --report`
