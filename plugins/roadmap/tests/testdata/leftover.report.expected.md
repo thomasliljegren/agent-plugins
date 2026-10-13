@@ -25,3 +25,7 @@ None open.
 ## Open pull requests
 
 None.
+
+## Suggested next
+
+Nothing: no decision, claim, slice, bug or initiative waits for anyone.

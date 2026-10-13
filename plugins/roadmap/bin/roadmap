@@ -139,6 +139,6 @@ fi
 format=snapshot
 [ "$mode" = report ] && format=report
 rules=$(jq -r '.rules // ""' "$file")
-text=$(jq -r -f "$plugin/scripts/render.jq" --arg format "$format" --argjson now "$ROADMAP_NOW" --arg rules "$rules" "$out" 2>&1) \
+text=$(jq -r -f "$plugin/scripts/render.jq" --arg format "$format" --argjson now "$ROADMAP_NOW" --arg rules "$rules" --arg practices "" "$out" 2>&1) \
   || unavailable "the answer of the $backend adapter could not be read ($(printf '%s' "$text" | head -n 1 | cut -c 1-200))"
 printf '%s\n' "$text"

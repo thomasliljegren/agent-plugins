@@ -35,7 +35,7 @@ check "the skill is backend-neutral" "" "$(grep -n -i -E 'github|pull request|(^
 example=$(awk '/^```json/{p=1; next} /^```/{p=0} p' "$ROOT/skills/roadmap/references/adapter-contract.md")
 check "the contract page's example holds the contract" "" "$(jq -r -f "$ROOT/scripts/contract.jq" <<<"$example")"
 contains "…and renders" "THIS BRANCH: feat/170-link-insurer -> no pull request." \
-  "$(jq -r -f "$ROOT/scripts/render.jq" --arg format snapshot --argjson now "$ROADMAP_NOW" --arg rules "" <<<"$example" 2>&1)"
+  "$(jq -r -f "$ROOT/scripts/render.jq" --arg format snapshot --argjson now "$ROADMAP_NOW" --arg rules "" --arg practices "" <<<"$example" 2>&1)"
 for state in default-branch detached unclaimed claimed merged closed unlinked unknown; do
   contains "the contract page names the state $state" "\`$state\`" "$(cat "$ROOT/skills/roadmap/references/adapter-contract.md")"
 done
