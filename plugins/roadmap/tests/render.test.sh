@@ -16,11 +16,15 @@ render drained report "" | same drained.report.expected.md "$DATA/drained.report
 
 busy=$(render busy snapshot CLAUDE.md)
 report=$(render busy report CLAUDE.md)
-contains "a blocked slice names its blocker and the claim on it" "    #17    Audit 5: pallet stays                    blocked         #15 <- PR #31" "$busy"
+contains "a blocked slice names its blocker and the claim on it" "    #17    Audit 5: pallet stays                    blocked                      #15 <- PR #31" "$busy"
 contains "a claimed slice shows the claim, a draft marked" "    #15    Audit 3: explainable drop-off            PR #31 (draft)" "$busy"
 contains "next is the first that nobody claimed and nothing blocks" "    #16    Audit 4: explainable refill and release  next" "$busy"
-contains "a slice both claimed and blocked shows both" "    #18    Audit 6: vendor entries and cargo key    PR #35 (draft)  #21" "$busy"
-contains "the table has its heading" "    SLICE  TITLE                                    STATUS          BLOCKED BY" "$busy"
+check "a free slice after a claimed one says which claim it is behind" "    #16    Audit 4: explainable refill and release  next, behind PR #31" "$(grep '^    #16 ' <<<"$busy")"
+contains "…every open claim ahead of it in the order" "    #41    Audit 7: pallet | crate split            next, behind PR #31, PR #35" "$busy"
+check "the first free slices of an initiative are behind nothing" "    #45    Labels: a crate's label  next" "$(grep '#45' <<<"$busy")"
+contains "the snapshot says what behind means" "behind = a claim on an earlier slice is still open" "$busy"
+contains "a slice both claimed and blocked shows both" "    #18    Audit 6: vendor entries and cargo key    PR #35 (draft)               #21" "$busy"
+contains "the table has its heading" "    SLICE  TITLE                                    STATUS                       BLOCKED BY" "$busy"
 check "the snapshot leaves out a slice that is only later" "" "$(grep '#47' <<<"$busy")"
 contains "the report lists it" "| #47   | Labels: a damaged label | later  |            |" "$report"
 contains "a | in a title is escaped in the report" 'Audit 7: pallet \| crate split' "$report"
@@ -38,10 +42,10 @@ check "the suggestions, in the order of the rules" "$(cat <<'TEXT'
 2. Answer decision #29.
 3. Answer decision #30.
 4. PR #33 claims nothing: put Closes #N in its body.
-5. Pick up or close PR #35, idle 13 days: it holds #18.
+5. Close PR #35, idle 13 days with nothing pushed since the claim: it holds #18.
 6. PR #37 claims nothing: gh pr edit 37 --base main.
 7. Take #45, then #46: next in #43, which has 3 open.
-8. Take #16, then #41: next in #12, which has 5 open.
+8. Take #16, then #41: next in #12, which has 5 open (behind PR #31 and PR #35).
 9. Fix a bug nobody has claimed: #71, #72, #73 and #74.
 10. Close #25, or add slices: no slice is left open.
 TEXT
@@ -58,7 +62,22 @@ contains "the practices are named on the second line" "and in CLAUDE.md. $senten
 check "without practices there is no such sentence" "" "$(grep 'Practices here' <<<"$busy")"
 check "the report carries none" "" "$(render busy report CLAUDE.md "$sentence" | grep 'Practices here')"
 
-state() { jq "$1" "$DATA/busy.state.json" | jq -r -f "$ROOT/scripts/render.jq" --arg format "${2:-snapshot}" --argjson now "$ROADMAP_NOW" --arg rules "" --arg practices "" 2>&1; }
+state() { # FILTER [FORMAT] [STALE AFTER, IN HOURS]
+  jq "$1" "$DATA/busy.state.json" | jq -r -f "$ROOT/scripts/render.jq" --arg format "${2:-snapshot}" --argjson now "$ROADMAP_NOW" --arg rules "" --arg practices "" \
+    ${3:+--argjson staleAfter "$3"} 2>&1
+}
+
+# A claim that stands still. The project says after how many hours; seven days where it does not.
+contains "a claim is stale at seven days" "idle 13d: STALE, close it to release the claim" "$busy"
+check "…and not an hour before" "" "$(state '.claims[4].idleHours = 167' | grep STALE)"
+contains "…and at exactly that" "idle 7d: STALE" "$(state '.claims[4].idleHours = 168')"
+contains "the project can say sooner, and a short time is counted in hours" "PR #9   claude/vendor-mock-simulator-f49ae9  #24                                                     idle 27h: STALE" "$(state . snapshot 24)"
+contains "…in the suggestion too" "Pick up or close PR #9, idle 27 hours: it holds #24." "$(state . report 24)"
+contains "a claim with nothing pushed since it was made says so" "draft, nothing pushed since the claim, idle 13d: STALE" "$busy"
+check "a claim whose work is not known to have started is not marked" "" "$(state '.claims[4].started = null' | grep 'nothing pushed')"
+contains "…and is to pick up, not only to close" "Pick up or close PR #35, idle 13 days: it holds #18." "$(state 'del(.claims[4].started)' report)"
+contains "an adapter that counts days is still read" "idle 13d: STALE" "$(state '.claims[4] |= (del(.idleHours) | .idleDays = 13)')"
+contains "a claim with neither fails loudly" "the state has no idleHours" "$(state '.claims[4] |= del(.idleHours)')"
 third='.initiatives[0].slices += [{id: "#99", title: "A third", state: "open", claims: [], blockedBy: [], notes: []}]'
 contains "initiatives that were not read are counted" "(+3 more initiatives not read)" "$(state '.moreInitiatives = 3')"
 contains "slices that were not read are counted" "only the first 8 read" "$(state '.initiatives[0].total = 9')"

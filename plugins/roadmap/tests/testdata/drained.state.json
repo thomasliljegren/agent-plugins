@@ -201,7 +201,8 @@
       "id": "PR #66",
       "ref": "feat/65-returns-back-to-the-depot",
       "tentative": true,
-      "idleDays": 11,
+      "idleHours": 269,
+      "started": null,
       "items": [
         "#65",
         "#59"
@@ -213,7 +214,8 @@
       "id": "PR #60",
       "ref": "chore/bump-jq",
       "tentative": true,
-      "idleDays": 20,
+      "idleHours": 485,
+      "started": null,
       "items": [],
       "note": "no closing link: it claims nothing",
       "fix": "put Closes #N in its body"

@@ -18,12 +18,34 @@ check "every call is a REST GET: no GraphQL, which a cloud session's proxy refus
 check "sub-issues are asked only of initiatives that have some" "12 25 43" "$(grep -o 'issues/[0-9]*/sub_issues' <<<"$calls" | grep -o '[0-9]*' | sort -nu | paste -sd' ' -)"
 check "blockers are asked only of open issues whose summary counts one" "17 18 22 27" "$(grep -o 'issues/[0-9]*/dependencies/blocked_by' <<<"$calls" | grep -o '[0-9]*' | sort -nu | paste -sd' ' -)"
 check "what a decision blocks is asked only where it blocks something" "28" "$(grep -o 'issues/[0-9]*/dependencies/blocking' <<<"$calls" | grep -o '[0-9]*' | sort -nu | paste -sd' ' -)"
+check "the newest commit is asked of the drafts that claim something" "aaaaa31 aaaaa35" "$(grep -o 'commits/[0-9a-f]*' <<<"$calls" | cut -d/ -f2 | sort -u | paste -sd' ' -)"
 contains "the two new kinds are asked by label" "labels=decision" "$calls"
 contains "…" "labels=enhancement" "$calls"
 contains "the branch's pull request is asked by owner and branch" "head=example:claude/explainable-dropoff-1a2b3c" "$calls"
 
+# …and of no other: a draft that closes nothing, one into another branch and one from a fork claim nothing.
+draft() { # NUMBER SHA UPDATED [MORE]
+  printf '{number: %s, draft: true, head: {ref: "b%s", sha: "%s"}, base: {ref: "main"}, updated_at: "%s", body: "Closes #16"} %s' "$1" "$1" "$2" "$3" "${4:-}"
+}
+jq ".openPrs += [$(draft 401 bbbbbb1 2026-09-21T09:00:00Z '| .body = "Related to #16"'), $(draft 402 bbbbbb2 2026-09-21T09:00:00Z '| .base.ref = "feat/x"'),
+                 $(draft 403 bbbbbb3 2026-09-21T09:00:00Z '| .head.repo = {full_name: "stranger/enzure"}')]" "$DATA/busy.raw.json" >"$SCRATCH/others.raw.json"
+stub_gh "$SCRATCH/others.raw.json"; run --state >/dev/null
+check "a draft that claims nothing is not asked for its newest commit" "" "$(grep -o 'commits/bbbbbb[0-9]' "$GH_STUB_LOG")"
+# Twenty are asked, and the ones that stood still longest: that is where the answer is used. GitHub lists them last.
+jq '.openPrs = [range(0; 25) | {number: (500 + .), draft: true, head: {ref: "b\(.)", sha: "cccc\(100 + .)"}, base: {ref: "main"},
+                                updated_at: "2026-09-\(if . >= 20 then "01" else "20" end)T09:00:\(10 + .)Z", body: "Closes #16"}]
+    | .headCommits = ([range(0; 25) | {key: "\(500 + .)", value: "chore: claim #16"}] | from_entries)' "$DATA/busy.raw.json" >"$SCRATCH/drafts.raw.json"
+stub_gh "$SCRATCH/drafts.raw.json"
+state=$(run --state)
+check "the newest commit of no more than twenty drafts is asked" 20 "$(grep -c '/commits/' "$GH_STUB_LOG")"
+check "…the ones idle longest among them" '[false,false,false,false,false]' "$(jq -c '[.claims[] | select(.idleHours > 400) | .started]' <<<"$state")"
+check "…and the rest are not judged" 5 "$(jq '[.claims[] | select(.started == null)] | length' <<<"$state")"
+contains "a newest commit that cannot be read fails the whole answer" "ROADMAP UNAVAILABLE: gh api failed: Server Error (HTTP 502)" "$(GH_STUB_FAIL_ON=/commits/ run)"
+contains "…and so does one that is no commit" "ROADMAP UNAVAILABLE: GitHub's newest commits of the draft pull requests could not be read" "$(GH_STUB_GARBAGE_ON=/commits/ GH_STUB_GARBAGE='[]' run)"
+
 stub_gh "$DATA/leftover.raw.json"
 git -C "$P" checkout -q -b claude/pr-title-format-ci-eea340
+rm -f "$P/.git/roadmap-seen.json"   # another tracker behind the same checkout: nothing to compare with
 opt_in "$P" '{"backend": "github", "practices": []}'
 check "end to end: a leftover worktree" "$(cat "$DATA/leftover.expected.txt")" "$(run)"
 

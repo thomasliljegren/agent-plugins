@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+# roadmap overlap [paths...]
+# The open pull requests that change the files this branch changes against the default branch, committed or not, or the
+# paths named (a file, or a directory for everything under it; typed from the current directory). Two claims on
+# different items can still meet in one file, and nothing else shows that before the second of them merges.
+# Reads and changes nothing. A request or more for each pull request, so it is asked for and is no part of the snapshot.
+set -u
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+
+die() { echo "roadmap overlap: $1." >&2; exit 1; }
+most=30      # pull requests read, the most recently updated first
+whole=3000   # GitHub lists no more files of one pull request than this
+
+slug=$(github_repo) || die "$slug"
+api="repos/$slug"
+tmp=$(mktemp -d "${TMPDIR:-/tmp}/roadmap.XXXXXX") || die "cannot create a temporary directory"
+trap 'rm -rf "$tmp"' EXIT
+trap 'kill $(jobs -p) 2>/dev/null; exit 143' TERM
+# call ARGS...: prints the answer, or only the reason and returns 1. A failing gh api prints GitHub's answer all the same,
+# and what a pull request's body says is not for a session to read as a message of this command.
+call() {
+  local answer status
+  answer=$(gh api "$@" 2>"$tmp/err"); status=$?
+  if [ "$status" -ne 0 ]; then gh_reason "$tmp/err" "$status"; return 1; fi
+  printf '%s\n' "$answer"
+}
+
+answer=$(call -X GET "$api") || die "$answer"
+default=$(jq -r '.default_branch // empty' <<<"$answer")
+[ -n "$default" ] || die "GitHub did not name the default branch"
+branch=$(git -C "$root" branch --show-current 2>/dev/null)
+
+# What is compared: the paths named, or what this checkout changes.
+if [ $# -gt 0 ]; then
+  what=paths
+  for path in "$@"; do case "$path" in -*) die "unknown option $path. Usage: roadmap overlap [paths...]" ;; esac; done
+  # As typed from the current directory, and as GitHub names a file: from the repository root. The root itself is ".".
+  prefix=$(git rev-parse --show-prefix 2>/dev/null) || prefix=""
+  jq -rn --arg prefix "$prefix" --arg root "$root" '
+    $ARGS.positional[] | . as $given
+    | def outside: error("\($given) is outside the repository");
+      ( if startswith("/") | not then $prefix + .
+        elif . == $root then ""
+        elif startswith($root + "/") then .[($root | length) + 1:]
+        else outside end )
+    | reduce (split("/")[] | select(. != "" and . != ".")) as $part ([];
+        if $part != ".." then . + [$part] elif length == 0 then outside else .[:-1] end)
+    | if length == 0 then "." else join("/") end' --args "$@" >"$tmp/mine" 2>"$tmp/err" \
+    || die "$(sed -n 's/^jq: error[^:]*: //p' "$tmp/err" | head -n 1)"
+else
+  what=files
+  base=$(git -C "$root" merge-base "origin/$default" HEAD 2>/dev/null) \
+    || die "this clone has no origin/$default to compare with. Run git fetch origin $default, or name the paths: roadmap overlap <paths...>"
+  # --no-renames: a file this branch renamed is both its names, and another may still change the old one.
+  { git -C "$root" -c core.quotepath=off diff --name-only --no-renames "$base"
+    git -C "$root" -c core.quotepath=off ls-files --others --exclude-standard; } 2>/dev/null | sort -u >"$tmp/mine"
+  if [ ! -s "$tmp/mine" ]; then
+    echo "${branch:-This checkout} changes nothing against $default yet. Name the paths you are about to change: roadmap overlap <paths...>"
+    exit 0
+  fi
+fi
+
+# Every other open pull request, wherever it is to merge: one that claims nothing changes files all the same.
+call -X GET "$api/pulls" -f state=open -f sort=updated -f direction=desc -f per_page=100 --paginate >"$tmp/pulls.pages" \
+  || die "$(cat "$tmp/pulls.pages")"
+jq -s --arg branch "$branch" --arg slug "$slug" \
+  'add // [] | map(select(.head.ref != $branch or (.head.repo.full_name // $slug) != $slug))' "$tmp/pulls.pages" >"$tmp/pulls.json" 2>/dev/null \
+  || die "GitHub's list of open pull requests could not be read"
+numbers=$(jq -r --argjson most "$most" '.[:$most][].number' "$tmp/pulls.json")
+
+mkdir "$tmp/files"
+pids=""
+for number in $numbers; do
+  gh api -X GET "$api/pulls/$number/files" -f per_page=100 --paginate >"$tmp/files/$number.json" 2>"$tmp/files/$number.err" &
+  pids="$pids $!"
+done
+failed=""; code=0
+# shellcheck disable=SC2086
+set -- $numbers
+for pid in $pids; do
+  wait "$pid"; status=$?
+  if [ "$status" -ne 0 ] && [ -z "$failed" ]; then failed=$1; code=$status; fi
+  shift
+done
+[ -z "$failed" ] || die "$(gh_reason "$tmp/files/$failed.err" "$code")"
+# --paginate prints one list for each page. An answer that is no list fails: a gateway's page is not "no files".
+for number in $numbers; do
+  jq -cs --arg number "$number" 'if all(.[]; type == "array") then {($number): (add // [])} else error("not a list") end' \
+    "$tmp/files/$number.json" 2>/dev/null || die "GitHub's files of PR #$number could not be read"
+done >"$tmp/files.parts"
+jq -s 'add // {}' "$tmp/files.parts" >"$tmp/files.json" 2>/dev/null || die "GitHub's files of the pull requests could not be read"
+
+jq -r -L "$adapter" -f "$adapter/overlap.jq" --arg project "$slug" --arg default "$default" --arg branch "$branch" --arg what "$what" \
+  --argjson most "$most" --argjson whole "$whole" --rawfile mine "$tmp/mine" --slurpfile files "$tmp/files.json" "$tmp/pulls.json" \
+  || die "GitHub's answer could not be read"

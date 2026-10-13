@@ -6,12 +6,12 @@ REPO=$(cd "$ROOT/../.." && pwd)
 M="$ROOT/.claude-plugin/plugin.json"
 check "the manifest parses" 0 "$(jq -e . "$M" >/dev/null 2>&1; echo $?)"
 check "the plugin is named roadmap" roadmap "$(jq -r .name "$M")"
-check "version is 0.2.1" 0.2.1 "$(jq -r .version "$M")"
+check "version is 0.3.0" 0.3.0 "$(jq -r .version "$M")"
 check "the manifest uses the default hooks/hooks.json" null "$(jq -r .hooks "$M")"
 entry=$(jq -c '.plugins[] | select(.name == "roadmap")' "$REPO/.claude-plugin/marketplace.json")
 check "the marketplace lists the plugin" ./plugins/roadmap "$(jq -r .source <<<"$entry")"
 
-for f in bin/roadmap adapters/github/state adapters/github/claim adapters/github/release adapters/github/setup; do
+for f in bin/roadmap adapters/github/state adapters/github/claim adapters/github/release adapters/github/overlap adapters/github/setup; do
   check "$f is executable in git" 100755 "$(git -C "$REPO" ls-files -s "plugins/roadmap/$f" | cut -d' ' -f1)"
 done
 
@@ -21,7 +21,7 @@ check "the skill's description says when to use it" 1 "$(sed -n '3p' "$S" | grep
 for word in Initiative Slice "Other work" Blocked Claim Next Practice; do
   contains "the skill defines $word" "**$word**" "$(cat "$S")"
 done
-for command in "roadmap --report" "roadmap claim" "roadmap release" "roadmap setup" "roadmap --state"; do
+for command in "roadmap --report" "roadmap --changes" "roadmap claim" "roadmap release" "roadmap overlap" "roadmap setup" "roadmap --state"; do
   contains "the skill names $command" "\`$command" "$(cat "$S")"
   contains "the README names $command" "\`$command" "$(cat "$ROOT/README.md")"
 done
@@ -38,6 +38,12 @@ for practice in findings ready stacking merge; do
 done
 contains "the GitHub page says how to mark a blocker" "--add-blocked-by" "$(cat "$GH")"
 contains "the README shows practices in the config" '"practices"' "$(cat "$ROOT/README.md")"
+contains "the README shows after how many hours a claim is stale" '"staleAfterHours"' "$(cat "$ROOT/README.md")"
+contains "the skill says what behind means" "behind <claim>" "$(cat "$S")"
+contains "the skill says what a later look adds" "CHANGED since" "$(cat "$S")"
+contains "the GitHub page says who keeps a claim made twice at once" "opened first" "$(cat "$GH")"
+check "the GitHub page has a section on overlap" 1 "$(grep -c "^## Overlap" "$GH")"
+contains "the contract page names the fifth command" '`overlap`' "$(cat "$ROOT/skills/roadmap/references/adapter-contract.md")"
 for adapter in "$ROOT"/adapters/*/; do
   name=$(basename "$adapter")
   check "the $name backend has its reference page" yes "$([ -f "$ROOT/skills/roadmap/references/$name.md" ] && echo yes)"

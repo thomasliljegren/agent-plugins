@@ -5,6 +5,7 @@
 #   GH_STUB_FAIL_ON   fail only the calls whose arguments contain this text
 #   GH_STUB_GARBAGE_ON answer the calls whose arguments contain this text with $GH_STUB_GARBAGE (a gateway's page), exit 0
 #   GH_STUB_BRANCH_PR a file: a pull request opened with POST is written there, and is then the branch's open pull request
+#   GH_STUB_RIVAL     a file with a list of pull requests that are open as well once that one is: a claim made at the same moment
 echo "gh $*" >>"${GH_STUB_LOG:-/dev/null}"
 raw=$GH_STUB_RAW
 all="$*"
@@ -15,8 +16,9 @@ field() {  # field NAME ARGS...: the value of -f NAME=value
 }
 if [ "$*" = "auth token" ]; then echo stub-token; exit 0; fi
 [ -z "${GH_STUB_SLEEP:-}" ] || sleep "$GH_STUB_SLEEP"
-if [ -n "${GH_STUB_FAIL:-}" ]; then echo "gh: $GH_STUB_FAIL" >&2; exit 1; fi
-case "$*" in *"${GH_STUB_FAIL_ON:-<never>}"*) echo "gh: Server Error (HTTP 502)" >&2; exit 1 ;; esac
+# Like the real gh api, a failure prints GitHub's error document on stdout and the reason on stderr.
+if [ -n "${GH_STUB_FAIL:-}" ]; then echo '{"message": "RAW ANSWER"}'; echo "gh: $GH_STUB_FAIL" >&2; exit 1; fi
+case "$*" in *"${GH_STUB_FAIL_ON:-<never>}"*) echo '[{"body": "RAW ANSWER"}]'; echo "gh: Server Error (HTTP 502)" >&2; exit 1 ;; esac
 case "$*" in *"${GH_STUB_GARBAGE_ON:-<never>}"*) printf '%s\n' "${GH_STUB_GARBAGE:-<html>gateway</html>}"; exit 0 ;; esac
 case "$*" in
   "api -X POST "*"/pulls "*)
@@ -42,12 +44,22 @@ case "$*" in
   *"/issues/"[0-9]*)
     number=${all##*/issues/}; number=${number%% *}
     jq -e --argjson number "$number" '[.initiatives[], .subIssues[][], .bugs[], .debt[]] | map(select(.number == $number)) | .[0] // empty
-      | {number, title, state: (.state // "open"), pull_request}' "$raw" || { echo "gh: Not Found (HTTP 404)" >&2; exit 1; } ;;
+      | {number, title, state: (.state // "open"), pull_request}' "$raw" || { echo '{"message": "RAW ANSWER"}'; echo "gh: Not Found (HTTP 404)" >&2; exit 1; } ;;
   *"labels=initiative"*) jq .initiatives "$raw" ;;
   *"labels=bug"*) jq .bugs "$raw" ;;
   *"labels=decision"*) jq '.decisions // []' "$raw" ;;
   *"labels=enhancement"*) jq '.enhancements // []' "$raw" ;;
   *"labels=debt"*) jq .debt "$raw" ;;
+  *"/pulls/"[0-9]*"/files"*)
+    number=${all#*/pulls/}; number=${number%%/files*}
+    # .prFilesPages holds a pull request's files as --paginate prints them: one list after another
+    jq --arg number "$number" '(.prFilesPages // {})[$number] as $pages | if $pages then $pages[] else (.prFiles // {})[$number] // [] end' "$raw" ;;
+  *"/commits/"*)
+    # the newest commit of a pull request, asked by its head: .headCommits holds the message under the pull request's number
+    sha=${all##*/commits/}; sha=${sha%% *}
+    jq -e --arg sha "$sha" '([.openPrs[] | select(.head.sha == $sha) | .number | tostring][0] // "") as $number
+      | (.headCommits // {})[$number] // empty | {sha: $sha, commit: {message: .}}' "$raw" \
+      || { echo '{"message": "RAW ANSWER"}'; echo "gh: Not Found (HTTP 404)" >&2; exit 1; } ;;
   *"/pulls/"[0-9]*) cat "$created" ;;
   *"/pulls"*"head="*)
     if [ -f "$created" ]; then jq -s . "$created"
@@ -55,7 +67,9 @@ case "$*" in
       *"state=open"*) jq '.branchPrs | map(select(.state == "open"))' "$raw" ;;
       *) jq .branchPrs "$raw" ;;
     esac; fi ;;
-  *"/pulls"*"state=open"*) jq .openPrs "$raw" ;;
+  *"/pulls"*"state=open"*)
+    if [ -f "$created" ]; then jq -s '.[0].openPrs + [.[1]] + (.[2] // [])' "$raw" "$created" "${GH_STUB_RIVAL:-/dev/null}"
+    else jq .openPrs "$raw"; fi ;;
   *"/pulls"*"state=closed"*) jq .closedPrs "$raw" ;;
   "api -X GET repos/"*) jq .repo "$raw" ;;
   *) echo "gh: the stub has no answer for: $*" >&2; exit 1 ;;

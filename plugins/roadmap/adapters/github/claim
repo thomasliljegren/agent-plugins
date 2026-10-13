@@ -2,6 +2,9 @@
 # roadmap claim <ids...> --type <type> --title "<type(scope): title>" [--description <words>]
 # Makes the claim the others can see: a draft pull request that closes the ids, on a branch named after the first of them.
 # Safe to repeat: every step looks before it acts, so a claim that stopped partway is finished by the same command.
+# Two sessions that claim the same id at the same moment both pass the check, so the claim looks once more after it is
+# made: the pull request opened first keeps the id and the later one releases it. Only then: a repeated claim reports a
+# second claim on its ids and gives nothing up, since by then a lower number no longer says who was first.
 set -u
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
@@ -34,7 +37,42 @@ slug=$(github_repo) || die "$slug"
 api="repos/$slug"
 err=$(mktemp "${TMPDIR:-/tmp}/roadmap.XXXXXX") || die "cannot create a temporary file"
 trap 'rm -f "$err"' EXIT
-call() { gh api "$@" 2>"$err" || { gh_reason "$err" $?; return 1; }; }   # prints the answer, or the reason and returns 1
+# call ARGS...: prints the answer, or only the reason and returns 1. A failing gh api prints GitHub's answer all the same,
+# and that is not for a session to read as a message of this command.
+call() {
+  local answer status
+  answer=$(gh api "$@" 2>"$err"); status=$?
+  if [ "$status" -ne 0 ]; then gh_reason "$err" "$status"; return 1; fi
+  printf '%s\n' "$answer"
+}
+
+# holders EXCEPT: the open pull requests other than number EXCEPT that claim one of the ids, as [{pr, ids}].
+# Prints the reason and returns 1 when GitHub cannot be asked.
+holders() {
+  local open
+  open=$(call -X GET "$api/pulls" -f state=open -f per_page=100 --paginate) || { echo "$open"; return 1; }
+  jq -cs -L "$adapter" --arg default "$default" --arg slug "$slug" --argjson except "$1" \
+     --argjson wanted "$(printf '%s\n' "$wanted" | jq -Rn '[inputs | tonumber]')" '
+    include "closes";
+    [ add[] | select(.number != $except and .base.ref == $default and (.head.repo.full_name // $slug) == $slug)
+      | {pr: .number, ids: (.body | closes | map(select(. as $n | $wanted | any(. == $n))))} | select(.ids | length > 0) ]' <<<"$open" 2>/dev/null \
+    || { echo "GitHub's list of open pull requests could not be read"; return 1; }
+}
+held='map("PR #\(.pr) claims \(.ids | map("#\(.)") | join(", "))") | join("; ")'
+
+# settle NUMBER: what pull request NUMBER and another both claim stays with the one opened first.
+settle() {
+  local others lost
+  others=$(holders "$1") || die "PR #$1 claims $list, but the other pull requests could not be read: $others. Run the same command again"
+  lost=$(jq -r --argjson mine "$1" '[.[] | select(.pr < $mine) | .ids[]] | unique | .[]' <<<"$others")
+  if [ -n "$lost" ]; then
+    # shellcheck disable=SC2086
+    "$adapter/release" $lost >&2 || die "PR #$1 lost a claim made at the same moment and could not release it: $(jq -r --argjson mine "$1" "map(select(.pr < \$mine)) | $held" <<<"$others")"
+    die "lost $(jq -r --argjson mine "$1" 'map(select(.pr < $mine) | "\(.ids | map("#\(.)") | join(", ")) to PR #\(.pr)") | join(", ")' <<<"$others"), which was opened first. Run roadmap and propose the workload again"
+  fi
+  jq -r --argjson mine "$1" '.[] | select(.pr > $mine)
+    | "PR #\(.pr) claims \(.ids | map("#\(.)") | join(", ")) as well and was opened later: it gives way. If roadmap still shows both, tell the owner."' <<<"$others"
+}
 
 branch=$(git -C "$root" branch --show-current 2>/dev/null)
 [ -n "$branch" ] || die "this checkout is on a detached HEAD: check out a branch first"
@@ -49,18 +87,18 @@ number=$(jq -r '.[0].number // empty' <<<"$answer")
 if [ -n "$number" ]; then
   has=$(jq -r '.[0].body // ""' <<<"$answer" | closes | sort -n | paste -sd' ' -)
   if [ "$has" = "$(printf '%s\n' "$wanted" | sort -n | paste -sd' ' -)" ]; then
+    # Not settled here: this claim may have stood for days, and an older pull request can take an id by an edit.
+    others=$(holders "$number") || die "PR #$number claims $list, but the other pull requests could not be read: $others. Run the same command again"
     echo "Already claimed: PR #$number on $branch closes $(printf '%s\n' "$has" | tr ' ' '\n' | sed 's/^/#/' | paste -sd, - | sed 's/,/, /g')."
+    jq -r '.[] | "PR #\(.pr) claims \(.ids | map("#\(.)") | join(", ")) as well: two claims on one item. Tell the owner."' <<<"$others"
     exit 0
   fi
   die "this branch already has PR #$number, which closes ${has:-nothing}. Claim $list from a branch of its own, or change what PR #$number closes"
 fi
 
 # Nobody else may hold any of the ids.
-answer=$(call -X GET "$api/pulls" -f state=open -f per_page=100 --paginate) || die "$answer"
-taken=$(jq -rs -L "$adapter" --arg default "$default" --arg slug "$slug" --argjson wanted "$(printf '%s\n' "$wanted" | jq -Rn '[inputs | tonumber]')" '
-  include "closes";
-  [ add[] | select(.base.ref == $default and (.head.repo.full_name // $slug) == $slug) | .number as $pr | (.body | closes | map(select(. as $n | $wanted | any(. == $n))))
-    | select(length > 0) | "PR #\($pr) claims \(map("#\(.)") | join(", "))" ] | join("; ")' <<<"$answer")
+answer=$(holders 0) || die "$answer"
+taken=$(jq -r "$held" <<<"$answer")
 [ -z "$taken" ] || die "already claimed: $taken"
 
 # Every id is an open issue of this repository.
@@ -112,6 +150,10 @@ base=$(jq -r '.base.ref // ""' <<<"$answer")
 if [ "$has" != "$(printf '%s\n' "$wanted" | sort -n | paste -sd' ' -)" ] || [ "$base" != "$default" ]; then
   die "PR #$number was opened, but it does not claim $list: its body closes ${has:-nothing} and it targets $base. Fix it by hand"
 fi
+
+# 6. Look once more: a claim made at the same moment passed the same check.
+later=$(settle "$number") || exit 1
 echo "Claimed $list: PR #$number (draft) on $branch."
+[ -z "$later" ] || echo "$later"
 [ -z "$before" ] || echo "This branch was pushed before as $before. origin/$before is left as it is: delete it when nothing needs it."
 jq -r '.html_url // empty' <<<"$answer"
