@@ -362,8 +362,8 @@
       "tentative": false,
       "idleDays": 0,
       "items": [],
-      "note": "no closing link: it claims nothing",
-      "fix": "put Closes #N in its body"
+      "note": "into feat/17-pallet-stays, not main: it claims nothing",
+      "fix": "gh pr edit 37 --base main"
     }
   ],
   "here": {

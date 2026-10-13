@@ -35,12 +35,12 @@ ENHANCEMENTS: 4 open (gh issue list --label enhancement)
 DEBT: 3 open (gh issue list --label debt)
 
 OPEN PULL REQUESTS
-    CLAIM   BRANCH                               CLAIMS                              FLAGS
-    PR #31  claude/explainable-dropoff-1a2b3c    #15                                 draft
+    CLAIM   BRANCH                               CLAIMS                                                  FLAGS
+    PR #31  claude/explainable-dropoff-1a2b3c    #15                                                     draft
     PR #36  claude/escape-node-ids-4d5e6f        #26
     PR #9   claude/vendor-mock-simulator-f49ae9  #24
     PR #33  claude/bump-hotchocolate-9f8e7d      no closing link: it claims nothing
-    PR #35  claude/vendor-entries-7a8b9c         #18                                 draft, idle 13d: STALE, close it to release the claim
-    PR #37  feat/17-pallet-stays-part-two        no closing link: it claims nothing
+    PR #35  claude/vendor-entries-7a8b9c         #18                                                     draft, idle 13d: STALE, close it to release the claim
+    PR #37  feat/17-pallet-stays-part-two        into feat/17-pallet-stays, not main: it claims nothing
 
 THIS BRANCH: claude/explainable-dropoff-1a2b3c -> PR #31 (draft) -> #15 Audit 3: explainable drop-off (gh issue view 15)

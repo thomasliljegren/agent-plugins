@@ -31,6 +31,7 @@ while [ $# -gt 0 ]; do
       IFS=', ' read -r -a asked <<<"$2"
       for name in ${asked[@]+"${asked[@]}"}; do
         case " $every " in *" $name "*) ;; *) die "there is no practice '$name'; the practices are findings, ready, stacking and merge" ;; esac
+        case " $practices " in *" $name "*) continue ;; esac   # named twice
         practices="$practices${practices:+ }$name"
       done
       shift ;;
@@ -123,9 +124,9 @@ allow='["Bash(git add *)", "Bash(git commit *)", "Bash(git push *)", "Bash(gh pr
 ask='["Bash(git push --force*)", "Bash(git push -f *)", "Bash(git push * --force*)", "Bash(git push * -f *)", "Bash(git push -f)", "Bash(git push * +*)"]'
 what="allow git add, commit, push and gh pr ready; ask on force push"
 case " $practices " in *" merge "*)
-  allow=$(jq -c '. + ["Bash(gh pr merge *)", "Bash(gh run rerun *)"]' <<<"$allow")
+  allow=$(jq -c '. + ["Bash(gh pr merge *)", "Bash(gh pr checks *)", "Bash(gh pr view *)", "Bash(gh run rerun *)"]' <<<"$allow")
   ask=$(jq -c '. + ["Bash(gh pr merge * --admin*)", "Bash(gh pr merge --admin*)"]' <<<"$ask")
-  what="allow git add, commit, push, gh pr ready, gh pr merge and gh run rerun; ask on force push and on a merge with --admin" ;;
+  what="allow git add, commit, push, gh pr ready, gh pr merge, gh pr checks, gh pr view and gh run rerun; ask on force push and on a merge with --admin" ;;
 esac
 current='{}'
 if [ -s "$settings" ] && grep -q '[^[:space:]]' "$settings"; then current=$(cat "$settings"); fi

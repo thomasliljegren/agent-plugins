@@ -98,6 +98,7 @@ fail() {  # the status modes report and exit 0; claim and release fail
 # A name is a page of the skill. One without a page is said, never dropped, and a name is never a path.
 practices_sentence() {
   local name known="" unknown="" text=none
+  local LC_ALL=C   # a-z means those letters: another locale lets capitals through, and a file system may not tell them apart
   while IFS= read -r name; do
     [ -n "$name" ] || continue
     case "$name" in

@@ -76,4 +76,11 @@ check "…so none of them is next" "" "$(paged | grep -E '#4[0-9][0-9] .* next$'
 jq '.subIssues["43"] |= map(. + {body: ("x" * 400000)})' "$DATA/busy.raw.json" >"$SCRATCH/large.raw.json"
 stub_gh "$SCRATCH/large.raw.json"
 check "sub-issues larger than a command line carries are still read" '"#47"' "$(paged --state | jq -c '.initiatives[5].slices[3].id' 2>&1)"
+stub_gh "$DATA/busy.raw.json"
+unavailable "a failing call of the third round fails the whole answer" "gh api failed: Server Error (HTTP 502)" "$(GH_STUB_FAIL_ON=issues/17/dependencies paged)"
+unavailable "…and so does one about what a decision blocks" "gh api failed: Server Error (HTTP 502)" "$(GH_STUB_FAIL_ON=/dependencies/blocking paged)"
+jq '.bugs += [.initiatives[] | select(.number == 22)]' "$DATA/busy.raw.json" >"$SCRATCH/both.raw.json"
+stub_gh "$SCRATCH/both.raw.json"
+paged >/dev/null
+check "an issue that is an initiative and a bug has its blockers asked for once" 1 "$(grep -c 'issues/22/dependencies/blocked_by' "$GH_STUB_LOG")"
 finish
