@@ -8,13 +8,31 @@
     {
       "kind": "bug",
       "heading": "Bugs",
+      "noun": "Bug",
       "open": 0,
       "list": "gh issue list --label bug",
       "items": []
     },
     {
+      "kind": "decision",
+      "heading": "Decisions for the owner",
+      "noun": "Decision",
+      "open": 0,
+      "list": "gh issue list --label decision",
+      "items": []
+    },
+    {
+      "kind": "enhancement",
+      "heading": "Enhancements",
+      "noun": "Enhancement",
+      "open": 0,
+      "list": "gh issue list --label enhancement",
+      "items": []
+    },
+    {
       "kind": "debt",
       "heading": "Debt",
+      "noun": "Debt",
       "open": 0,
       "list": "gh issue list --label debt",
       "items": []

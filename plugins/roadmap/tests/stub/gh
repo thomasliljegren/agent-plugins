@@ -31,12 +31,20 @@ case "$*" in
   *"/sub_issues"*)
     number=${all#*/issues/}; number=${number%%/sub_issues*}
     jq --arg number "$number" '.subIssues[$number] // []' "$raw" ;;
+  *"/dependencies/blocked_by"*)
+    number=${all#*/issues/}; number=${number%%/dependencies*}
+    jq --arg number "$number" '.blockedBy[$number] // []' "$raw" ;;
+  *"/dependencies/blocking"*)
+    number=${all#*/issues/}; number=${number%%/dependencies*}
+    jq --arg number "$number" '.blocking[$number] // []' "$raw" ;;
   *"/issues/"[0-9]*)
     number=${all##*/issues/}; number=${number%% *}
     jq -e --argjson number "$number" '[.initiatives[], .subIssues[][], .bugs[], .debt[]] | map(select(.number == $number)) | .[0] // empty
       | {number, title, state: (.state // "open"), pull_request}' "$raw" || { echo "gh: Not Found (HTTP 404)" >&2; exit 1; } ;;
   *"labels=initiative"*) jq .initiatives "$raw" ;;
   *"labels=bug"*) jq .bugs "$raw" ;;
+  *"labels=decision"*) jq '.decisions // []' "$raw" ;;
+  *"labels=enhancement"*) jq '.enhancements // []' "$raw" ;;
   *"labels=debt"*) jq .debt "$raw" ;;
   *"/pulls/"[0-9]*) cat "$created" ;;
   *"/pulls"*"head="*)

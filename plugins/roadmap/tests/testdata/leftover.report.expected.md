@@ -10,6 +10,14 @@ None open.
 
 None open.
 
+## Decisions for the owner
+
+None open.
+
+## Enhancements
+
+None open.
+
 ## Debt
 
 None open.

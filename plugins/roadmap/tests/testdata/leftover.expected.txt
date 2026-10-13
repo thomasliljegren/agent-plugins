@@ -5,6 +5,8 @@ INITIATIVES (next = first open slices in order that nobody has claimed; the owne
   none open
 
 BUGS: none open
+DECISIONS FOR THE OWNER: none open
+ENHANCEMENTS: none open
 DEBT: none open
 
 OPEN PULL REQUESTS: none

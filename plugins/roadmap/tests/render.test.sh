@@ -14,7 +14,7 @@ render leftover report "" | same leftover.report.expected.md "$DATA/leftover.rep
 
 state() { jq "$1" "$DATA/busy.state.json" | jq -r -f "$ROOT/scripts/render.jq" --arg format "${2:-snapshot}" --argjson now "$ROADMAP_NOW" --arg rules "" 2>&1; }
 contains "initiatives that were not read are counted" "(+3 more initiatives not read)" "$(state '.moreInitiatives = 3')"
-contains "slices that were not read are counted" "only the first 7 read" "$(state '.initiatives[0].total = 9')"
+contains "slices that were not read are counted" "only the first 8 read" "$(state '.initiatives[0].total = 9')"
 contains "the report lists every open slice" "- later: #99 A third" "$(state '.initiatives[0].slices += [{id: "#99", title: "A third", state: "open", claims: [], notes: []}]' report)"
 check "the snapshot lists two" "" "$(state '.initiatives[0].slices += [{id: "#99", title: "A third", state: "open", claims: [], notes: []}]' | grep '#99')"
 contains "a default branch" "THIS BRANCH: main. Work happens on a branch off main in its own worktree." \

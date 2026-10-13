@@ -1,7 +1,8 @@
 include "closes";
 
 # GitHub's REST answers, gathered by `state` into one document, as the normalized state of the adapter contract.
-# Input: {repo, initiatives, subIssues: {"<number>": [...]}, openPrs, closedPrs, bugs, debt, branchPrs}
+# Input: {repo, initiatives, subIssues: {"<number>": [...]}, blockedBy: {"<number>": [...]}, blocking: {"<number>": [...]},
+#         openPrs, closedPrs, bugs, decisions, enhancements, debt, branchPrs}
 # Run with -L <this directory>, for closes.jq.
 # Arguments: $project (owner/name), $branch ("" when detached), $now (epoch seconds), $config (the github section of .roadmap.json).
 
@@ -25,8 +26,12 @@ def named($kind): $config.labels[$kind] // $kind;
 | (.openPrs | need("openPrs")) as $open
 | (.closedPrs | need("closedPrs")) as $closed
 | (.subIssues | need("subIssues")) as $subs
+| (.blockedBy | need("blockedBy")) as $blockers
+| (.blocking | need("blocking")) as $blocking
 | (.initiatives | need("initiatives") | issues) as $initiatives
 | (.bugs | need("bugs") | issues) as $bugs
+| (.decisions | need("decisions") | issues) as $decisions
+| (.enhancements | need("enhancements") | issues) as $enhancements
 | (.debt | need("debt") | issues) as $debt
 # GitHub links and closes issues only for pull requests into the default branch.
 # A pull request from a fork is not a claim: anyone can open one.
@@ -36,8 +41,18 @@ def named($kind): $config.labels[$kind] // $kind;
 | ([$closed[] | select(.merged_at != null) | linked[]]) as $merged
 # Only the newest 100 closed pull requests are read. A slice closed before the oldest of them cannot be judged.
 | (if ($closed | length) < 100 then null else ($closed | map(.updated_at) | min) end) as $horizon
-| ([$initiatives[], $subs[][], $bugs[], $debt[]] | map({key: (.number | tostring), value: .title}) | from_entries) as $titles
+| ([$initiatives[], $subs[][], $bugs[], $decisions[], $enhancements[], $debt[]] | map({key: (.number | tostring), value: .title}) | from_entries) as $titles
 | def claims_of: (.number | need("number")) as $n | [$links[] | select(.closes | any(. == $n)) | .id];
+  # GitHub counts an issue's open blockers in its summary, and `state` asks for the list only where that count is above
+  # zero. A blocker's claims are the open pull requests that close it, like every other claim.
+  def summary: .issue_dependencies_summary | need("issue_dependencies_summary");
+  def blocked_by:
+    summary as $summary
+    | [ ($blockers[.number | tostring] // [])[] | select((.state | need("state")) == "open")
+        | {id: "#\(.number | need("number"))", claims: claims_of} ];
+  def blocks:
+    summary as $summary
+    | [ ($blocking[.number | tostring] // [])[] | select((.state | need("state")) == "open") | "#\(.number | need("number"))" ];
   def state:
     if (.state | need("state")) != "closed" then "open"
     elif .state_reason == "not_planned" or .state_reason == "duplicate" then "dropped"
@@ -48,20 +63,24 @@ def named($kind): $config.labels[$kind] // $kind;
   def unlabelled: state != "dropped" and (.labels | need("labels") | any(.name == named("slice")) | not);
   def slice:
     { id: "#\(.number | need("number"))", title: (.title | need("title") | safe), state: state, claims: claims_of,
+      blockedBy: (if state == "open" then blocked_by else [] end),
       notes: [ (if by_hand then {text: "closed by hand, not by a merged PR", fix: null} else empty end),
                (if unlabelled then {text: "unlabelled", fix: "gh issue edit N --add-label \(named("slice"))"} else empty end) ] };
   def initiative:
     ($subs[.number | tostring] // []) as $mine
     | { id: "#\(.number | need("number"))", title: (.title | need("title") | safe),
         total: (.sub_issues_summary.total | need("sub_issues_summary")), read: ($mine | length),
-        claims: claims_of, slices: ($mine | map(slice)) };
-  def item: {id: "#\(.number | need("number"))", title: (.title | need("title") | safe), claims: claims_of};
+        claims: claims_of, blockedBy: blocked_by, slices: ($mine | map(slice)) };
+  def item: {id: "#\(.number | need("number"))", title: (.title | need("title") | safe), claims: claims_of, blockedBy: blocked_by};
+  def decision: {id: "#\(.number | need("number"))", title: (.title | need("title") | safe), blocks: blocks};
+  def listed($kind): "gh issue list --label \(named($kind))";
   def idle_days: (($now - (.updated_at | need("updated_at") | fromdateiso8601)) / 86400) | floor;
   def claim:
     linked as $closes
     | { id: "PR #\(.number | need("number"))", ref: (.head.ref | need("head") | safe), tentative: (.draft | need("draft")),
         idleDays: idle_days, items: ($closes | map("#\(.)")),
-        note: (if ($closes | length) == 0 then "no closing link: it claims nothing" else null end) };
+        note: (if ($closes | length) == 0 then "no closing link: it claims nothing" else null end),
+        fix: (if ($closes | length) == 0 then "put Closes #N in its body" else null end) };
   def here:
     (.branchPrs | need("branchPrs") | .[0]) as $pr
     | {branch: ($branch | safe), claim: null, tentative: false, items: []}
@@ -79,8 +98,11 @@ def named($kind): $config.labels[$kind] // $kind;
   { project: $project, backend: "github", defaultBranch: $default,
     initiatives: ($initiatives[:20] | map(initiative)),
     moreInitiatives: ([($initiatives | length) - 20, 0] | max),
-    other: [ {kind: "bug", heading: "Bugs", open: ($bugs | length), list: "gh issue list --label \(named("bug"))", items: ($bugs[:5] | map(item))},
-             {kind: "debt", heading: "Debt", open: ($debt | length), list: "gh issue list --label \(named("debt"))", items: []} ],
+    other: [ {kind: "bug", heading: "Bugs", noun: "Bug", open: ($bugs | length), list: listed("bug"), items: ($bugs[:10] | map(item))},
+             {kind: "decision", heading: "Decisions for the owner", noun: "Decision", open: ($decisions | length), list: listed("decision"),
+              items: ($decisions[:10] | map(decision))},
+             {kind: "enhancement", heading: "Enhancements", noun: "Enhancement", open: ($enhancements | length), list: listed("enhancement"), items: []},
+             {kind: "debt", heading: "Debt", noun: "Debt", open: ($debt | length), list: listed("debt"), items: []} ],
     claimsHeading: "Open pull requests",
     claims: ($open | map(claim)),
     here: here }

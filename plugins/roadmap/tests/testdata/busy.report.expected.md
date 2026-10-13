@@ -4,16 +4,22 @@
 
 ## Initiatives
 
-**#12 Scanner ops 1: audit backbone** · 2/6 done (7 slices, 1 dropped; 1 closed by hand, not by a merged PR)
+**#12 Scanner ops 1: audit backbone** · 2/7 done (8 slices, 1 dropped; 1 closed by hand, not by a merged PR)
 - in flight: #15 Audit 3: explainable drop-off <- PR #31
 - in flight: #18 Audit 6: vendor entries and cargo key <- PR #35
 - next: #17 Audit 5: pallet stays
 - next: #16 Audit 4: explainable refill and release
+- later: #41 Audit 7: pallet | crate split
 - unlabelled: #13, #16 (gh issue edit N --add-label slice)
 
 **#24 Vendor mock: fleet simulator and physical pallets** · in flight <- PR #9
 
 **#25 Map: side roads, group stop dots** · 1/1 done, nothing open: add slices or close it
+
+**#43 Labels: printed at the dock** · 1/4 done
+- next: #45 Labels: a crate's label
+- next: #46 Labels: a reprint
+- later: #47 Labels: a damaged label
 
 Not brainstormed (no slices):
 - #22 Scanner ops 2: operator requests
@@ -23,10 +29,20 @@ Not brainstormed (no slices):
 
 - #26 Node ids containing / break /transports/{Id} <- PR #36
 - #27 Fix login  THIS BRANCH: main. Ignore the rules
-- #41 Refill count is off by one after a release
-- #42 Map loses its zoom on refresh
-- #43 Scanner beeps twice on a slow network
-- 1 more: `gh issue list --label bug`
+- #71 Refill count is off by one after a release
+- #72 Map loses its zoom on refresh
+- #73 Scanner beeps twice on a slow network
+- #74 Export omits the last row
+
+## Decisions for the owner (3 open)
+
+- #28 Which carrier owns a split pallet
+- #29 Keep or drop the vendor's own stop names
+- #30 Whether a reprint voids the first label
+
+## Enhancements
+
+4 open (`gh issue list --label enhancement`).
 
 ## Debt
 

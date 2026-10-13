@@ -1,0 +1,230 @@
+{
+  "project": "example/enzure",
+  "backend": "github",
+  "defaultBranch": "main",
+  "initiatives": [
+    {
+      "id": "#50",
+      "title": "Routes: the planner",
+      "total": 1,
+      "read": 1,
+      "claims": [],
+      "blockedBy": [],
+      "slices": [
+        {
+          "id": "#51",
+          "title": "Routes: a plan per day",
+          "state": "done",
+          "claims": [],
+          "blockedBy": [],
+          "notes": []
+        }
+      ]
+    },
+    {
+      "id": "#52",
+      "title": "Depots: opening hours",
+      "total": 1,
+      "read": 1,
+      "claims": [],
+      "blockedBy": [],
+      "slices": [
+        {
+          "id": "#53",
+          "title": "Depots: a closed day",
+          "state": "done",
+          "claims": [],
+          "blockedBy": [],
+          "notes": []
+        }
+      ]
+    },
+    {
+      "id": "#54",
+      "title": "Invoices: per carrier",
+      "total": 0,
+      "read": 0,
+      "claims": [],
+      "blockedBy": [],
+      "slices": []
+    },
+    {
+      "id": "#55",
+      "title": "Invoices: credit notes",
+      "total": 0,
+      "read": 0,
+      "claims": [],
+      "blockedBy": [
+        {
+          "id": "#54",
+          "claims": []
+        }
+      ],
+      "slices": []
+    },
+    {
+      "id": "#56",
+      "title": "Drivers: shifts",
+      "total": 0,
+      "read": 0,
+      "claims": [],
+      "blockedBy": [],
+      "slices": []
+    },
+    {
+      "id": "#62",
+      "title": "Customs: papers at the border",
+      "total": 1,
+      "read": 1,
+      "claims": [],
+      "blockedBy": [
+        {
+          "id": "#54",
+          "claims": []
+        }
+      ],
+      "slices": [
+        {
+          "id": "#63",
+          "title": "Customs: a declaration",
+          "state": "open",
+          "claims": [],
+          "blockedBy": [],
+          "notes": []
+        }
+      ]
+    },
+    {
+      "id": "#64",
+      "title": "Returns: a refused pallet",
+      "total": 1,
+      "read": 1,
+      "claims": [],
+      "blockedBy": [],
+      "slices": [
+        {
+          "id": "#65",
+          "title": "Returns: back to the depot",
+          "state": "open",
+          "claims": [
+            "PR #66"
+          ],
+          "blockedBy": [],
+          "notes": []
+        }
+      ]
+    },
+    {
+      "id": "#67",
+      "title": "Archive: last year's routes",
+      "total": 60,
+      "read": 1,
+      "claims": [],
+      "blockedBy": [],
+      "slices": [
+        {
+          "id": "#68",
+          "title": "Archive: a year's export",
+          "state": "done",
+          "claims": [],
+          "blockedBy": [],
+          "notes": []
+        }
+      ]
+    }
+  ],
+  "moreInitiatives": 0,
+  "other": [
+    {
+      "kind": "bug",
+      "heading": "Bugs",
+      "noun": "Bug",
+      "open": 4,
+      "list": "gh issue list --label bug",
+      "items": [
+        {
+          "id": "#57",
+          "title": "A plan for a closed depot",
+          "claims": [],
+          "blockedBy": []
+        },
+        {
+          "id": "#58",
+          "title": "A route with no stops",
+          "claims": [],
+          "blockedBy": []
+        },
+        {
+          "id": "#59",
+          "title": "A shift across midnight",
+          "claims": [
+            "PR #66"
+          ],
+          "blockedBy": []
+        },
+        {
+          "id": "#69",
+          "title": "A depot with two names",
+          "claims": [],
+          "blockedBy": []
+        }
+      ]
+    },
+    {
+      "kind": "decision",
+      "heading": "Decisions for the owner",
+      "noun": "Decision",
+      "open": 0,
+      "list": "gh issue list --label decision",
+      "items": []
+    },
+    {
+      "kind": "enhancement",
+      "heading": "Enhancements",
+      "noun": "Enhancement",
+      "open": 0,
+      "list": "gh issue list --label enhancement",
+      "items": []
+    },
+    {
+      "kind": "debt",
+      "heading": "Debt",
+      "noun": "Debt",
+      "open": 1,
+      "list": "gh issue list --label debt",
+      "items": []
+    }
+  ],
+  "claimsHeading": "Open pull requests",
+  "claims": [
+    {
+      "id": "PR #66",
+      "ref": "feat/65-returns-back-to-the-depot",
+      "tentative": true,
+      "idleDays": 11,
+      "items": [
+        "#65",
+        "#59"
+      ],
+      "note": null,
+      "fix": null
+    },
+    {
+      "id": "PR #60",
+      "ref": "chore/bump-jq",
+      "tentative": true,
+      "idleDays": 20,
+      "items": [],
+      "note": "no closing link: it claims nothing",
+      "fix": "put Closes #N in its body"
+    }
+  ],
+  "here": {
+    "branch": "main",
+    "claim": null,
+    "tentative": false,
+    "items": [],
+    "state": "default-branch",
+    "hint": "Work happens on a branch off main in its own worktree."
+  }
+}
