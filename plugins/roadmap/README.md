@@ -17,8 +17,8 @@ It needs `bash`, `git` and `jq`, and `gh` signed in for the GitHub backend.
 
 In the project, run `/roadmap:setup`, or `roadmap setup` in a terminal. It asks before each change:
 
-- writes `.roadmap.json`
-- creates the labels `initiative`, `slice`, `bug` and `debt`
+- writes `.roadmap.json`, with the practices you choose
+- creates the labels `initiative`, `slice`, `bug`, `debt`, `enhancement` and `decision`
 - installs `.github/workflows/pr-title.yml`, which checks the pull request's title, its branch name and that it closes an issue
 - adds agent permissions to `.claude/settings.json`: allow `git add`, `git commit`, `git push` and `gh pr ready`; ask on every form of force push. Rules the project already has are kept, and a command it denies stays denied.
 
@@ -28,24 +28,40 @@ A project without `.roadmap.json` is left alone: the hook prints nothing there.
 {
   "backend": "github",
   "rules": "CLAUDE.md",
+  "practices": ["findings", "ready", "stacking"],
   "github": {
-    "labels": { "initiative": "initiative", "slice": "slice", "bug": "bug", "debt": "debt" },
+    "labels": { "initiative": "initiative", "slice": "slice", "bug": "bug", "debt": "debt", "enhancement": "enhancement", "decision": "decision" },
     "types": ["feat", "fix", "refactor", "perf", "docs", "test", "build", "ci", "chore"]
   }
 }
 ```
 
-`{ "backend": "github" }` is a complete file. `rules` names the file with the project's own additions to the rules; the snapshot points at it.
+`{ "backend": "github" }` is a complete file, with the practices shown. `rules` names the file with the project's own additions to the rules; the snapshot points at it.
+
+## Practices
+
+The core rules are the same everywhere: start from the snapshot, propose a workload, claim before working, file what you find. On top of them a project names the practices it follows, and the snapshot tells every session which they are:
+
+| Practice | Rules |
+| --- | --- |
+| `findings` | What is found on the way is fixed, filed or dropped, and what an item of each kind must name before it is filed. |
+| `ready` | What must hold before work is marked ready: checks green locally, a review of the whole change, a description that says what changed and how it was tested. |
+| `stacking` | Units that build on each other, and what to do with a slice that does not fit a session. |
+| `merge` | The session that claimed a unit merges it once it is ready and its checks pass. Not a default: `roadmap setup --practices findings,ready,stacking,merge` names it, and adds the permissions for `gh pr merge` and `gh run rerun`. |
+
+`"practices": []` is a project with the core rules only. The pages are `skills/roadmap/practices/<name>.md`; what each needs on GitHub is in `skills/roadmap/references/github.md`.
 
 ## Use
 
 | Command | Does |
 | --- | --- |
 | `roadmap` | the snapshot for this checkout |
-| `roadmap --report` or `/roadmap:report` | the Markdown report, every open slice listed |
+| `roadmap --report` or `/roadmap:report` | the Markdown report: every open slice, bugs, decisions, claims and what it suggests taking next |
 | `roadmap claim <ids...> --type <type> --title "<type(scope): title>"` | claim items with a draft pull request |
 | `roadmap release <ids...>` | withdraw a claim |
 | `roadmap --state` | the state as JSON |
+
+An issue that waits for another is marked with GitHub's blocked-by relation; the roadmap prints it as blocked and keeps it out of what comes next.
 
 The rules agents follow are in `skills/roadmap/SKILL.md`; what is particular to GitHub is in `skills/roadmap/references/github.md`.
 

@@ -6,7 +6,7 @@ REPO=$(cd "$ROOT/../.." && pwd)
 M="$ROOT/.claude-plugin/plugin.json"
 check "the manifest parses" 0 "$(jq -e . "$M" >/dev/null 2>&1; echo $?)"
 check "the plugin is named roadmap" roadmap "$(jq -r .name "$M")"
-check "version is 0.1.0" 0.1.0 "$(jq -r .version "$M")"
+check "version is 0.2.0" 0.2.0 "$(jq -r .version "$M")"
 check "the manifest uses the default hooks/hooks.json" null "$(jq -r .hooks "$M")"
 entry=$(jq -c '.plugins[] | select(.name == "roadmap")' "$REPO/.claude-plugin/marketplace.json")
 check "the marketplace lists the plugin" ./plugins/roadmap "$(jq -r .source <<<"$entry")"
@@ -18,13 +18,26 @@ done
 S="$ROOT/skills/roadmap/SKILL.md"
 check "the skill is named roadmap" "name: roadmap" "$(sed -n '2p' "$S")"
 check "the skill's description says when to use it" 1 "$(sed -n '3p' "$S" | grep -c '^description: .*Use ')"
-for word in Initiative Slice "Other work" Claim Next; do
+for word in Initiative Slice "Other work" Blocked Claim Next Practice; do
   contains "the skill defines $word" "**$word**" "$(cat "$S")"
 done
 for command in "roadmap --report" "roadmap claim" "roadmap release" "roadmap setup" "roadmap --state"; do
   contains "the skill names $command" "\`$command" "$(cat "$S")"
   contains "the README names $command" "\`$command" "$(cat "$ROOT/README.md")"
 done
+contains "the skill tells an agent to read the practices the snapshot names" "Practices here" "$(cat "$S")"
+contains "the skill says who merges" "unless the project's practices include \`merge\`" "$(cat "$S")"
+contains "the skill names the suggestions" "Suggested next" "$(cat "$S")"
+for kind in bug decision enhancement debt; do
+  contains "the skill names the kind $kind" "\`$kind\`" "$(cat "$S")"
+done
+GH="$ROOT/skills/roadmap/references/github.md"
+for practice in findings ready stacking merge; do
+  check "the GitHub page has a section for $practice" 1 "$(grep -c "^## The \`$practice\` practice" "$GH")"
+  contains "the README names the practice $practice" "\`$practice\`" "$(cat "$ROOT/README.md")"
+done
+contains "the GitHub page says how to mark a blocker" "--add-blocked-by" "$(cat "$GH")"
+contains "the README shows practices in the config" '"practices"' "$(cat "$ROOT/README.md")"
 for adapter in "$ROOT"/adapters/*/; do
   name=$(basename "$adapter")
   check "the $name backend has its reference page" yes "$([ -f "$ROOT/skills/roadmap/references/$name.md" ] && echo yes)"
