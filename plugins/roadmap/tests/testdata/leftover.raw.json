@@ -1,0 +1,10 @@
+{
+  "repo": {"default_branch": "main"},
+  "initiatives": [],
+  "subIssues": {},
+  "openPrs": [],
+  "closedPrs": [],
+  "bugs": [],
+  "debt": [],
+  "branchPrs": [{"number": 5, "state": "closed", "draft": false, "merged_at": "2026-09-20T10:00:00Z", "base": {"ref": "main"}, "body": "Closes #4"}]
+}

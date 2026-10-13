@@ -39,7 +39,7 @@ for f in "$README" "$SKILL"; do
   check "$(basename "$f") shows the justification line" yes "$(grep -q 'Model policy: frontier because <reason>' "$f" && echo yes)"
 done
 
-check "marketplace metadata version" 0.4.0 "$(jq -r .metadata.version "$REPO/.claude-plugin/marketplace.json")"
+check "marketplace metadata version" 0.5.0 "$(jq -r .metadata.version "$REPO/.claude-plugin/marketplace.json")"
 case "$(jq -r '.plugins[] | select(.name == "model-policy") | .description' "$REPO/.claude-plugin/marketplace.json")" in
   *tier*Copilot*) r=yes ;; *) r=no ;;
 esac

@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+# roadmap setup [--yes]
+# Prepares a repository and its GitHub project for the roadmap, asking before each change (--yes accepts them all).
+# Safe to repeat: what is already there is left as it is.
+set -u
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+
+die() { echo "roadmap setup: $1." >&2; exit 1; }
+
+yes=false
+case "${1:-}" in
+  "") ;;
+  --yes) yes=true ;;
+  *) die "usage: roadmap setup [--yes]" ;;
+esac
+confirm() {  # confirm QUESTION
+  [ "$yes" = true ] && return 0
+  printf '%s [y/N] ' "$1"
+  local answer=""
+  read -r answer || true
+  case "$answer" in y|Y|yes) return 0 ;; *) echo "  skipped"; return 1 ;; esac
+}
+
+[ -n "$root" ] || die "this is not inside a git checkout"
+command -v gh >/dev/null 2>&1 || die "gh is not installed"
+slug=$(github_repo) || die "$slug"
+api="repos/$slug"
+err=$(mktemp "${TMPDIR:-/tmp}/roadmap.XXXXXX") || die "cannot create a temporary file"
+trap 'rm -f "$err" "$err.new"' EXIT
+
+# 1. The project opts in.
+file="$root/.roadmap.json"
+if [ -f "$file" ]; then
+  echo ".roadmap.json is there already."
+  config=$(jq -c '.github // {}' "$file" 2>/dev/null) || die ".roadmap.json is not valid JSON"
+elif confirm "Write .roadmap.json (backend: github)?"; then
+  printf '{\n  "backend": "github"\n}\n' >"$file"
+  echo "  wrote .roadmap.json"
+fi
+
+# 2. The labels the roadmap reads.
+describe() {
+  case "$1" in
+    initiative) echo "A body of work, normally one design; its sub-issues are its slices" ;;
+    slice) echo "The smallest piece that ships on its own" ;;
+    bug) echo "Something is wrong" ;;
+    debt) echo "Work the code owes" ;;
+  esac
+}
+colour() { case "$1" in initiative) echo 5319e7 ;; slice) echo 0e8a16 ;; bug) echo d73a4a ;; debt) echo fbca04 ;; esac; }
+for kind in initiative slice bug debt; do
+  label=$(named "$kind")
+  if gh api -X GET "$api/labels/$(jq -rn --arg label "$label" '$label | @uri')" >/dev/null 2>&1; then
+    echo "The label '$label' is there already."
+  elif confirm "Create the label '$label'?"; then
+    gh api -X POST "$api/labels" -f name="$label" -f color="$(colour "$kind")" -f description="$(describe "$kind")" >/dev/null 2>"$err" \
+      && echo "  created '$label'" || echo "  could not create '$label': $(gh_reason "$err" 1)"
+  fi
+done
+
+# 3. The check that keeps the links the roadmap is derived from. The types go into a sed program and a regular
+# expression, and .roadmap.json is the repository's to write: only plain words pass.
+workflow="$root/.github/workflows/pr-title.yml"
+printf '%s' "$(types)" | grep -Eqx '[a-z][a-z0-9-]*(\|[a-z][a-z0-9-]*)*' \
+  || die "a type is lowercase letters, digits and hyphens; .roadmap.json lists something else under github.types"
+sed "s/__TYPES__/$(types)/g; s/__TYPE_LIST__/$(types | sed 's/|/, /g')/g" "$adapter/templates/pr-title.yml" >"$err.new" \
+  || die "the workflow template could not be filled in"
+if [ -f "$workflow" ] && cmp -s "$workflow" "$err.new"; then
+  echo ".github/workflows/pr-title.yml is there already."
+elif [ -f "$workflow" ]; then
+  echo ".github/workflows/pr-title.yml is there and differs from the template; it is left as it is. Compare it with $adapter/templates/pr-title.yml."
+elif confirm "Install .github/workflows/pr-title.yml (title format, branch name, closing link)?"; then
+  mkdir -p "$(dirname "$workflow")" && cp "$err.new" "$workflow" && echo "  wrote .github/workflows/pr-title.yml"
+fi
+
+# 4. What an agent may do without asking. Rules are added, never removed; a rule the project denies or asks about stays there.
+settings="$root/.claude/settings.json"
+allow='["Bash(git add *)", "Bash(git commit *)", "Bash(git push *)", "Bash(gh pr ready *)"]'
+ask='["Bash(git push --force*)", "Bash(git push -f *)", "Bash(git push * --force*)", "Bash(git push * -f *)", "Bash(git push -f)", "Bash(git push * +*)"]'
+current='{}'
+if [ -s "$settings" ] && grep -q '[^[:space:]]' "$settings"; then current=$(cat "$settings"); fi
+if ! merged=$(jq --argjson allow "$allow" --argjson ask "$ask" '
+    (.permissions.allow // []) as $a | (.permissions.ask // []) as $k | (.permissions.deny // []) as $d
+    | .permissions.allow = $a + ($allow - $a - $k - $d)
+    | .permissions.ask = $k + ($ask - $k - $d - $a)' <<<"$current" 2>/dev/null); then
+  echo ".claude/settings.json is not valid JSON; it is left as it is."
+else
+  kept=$(jq -r --argjson allow "$allow" '[$allow[] as $rule | select(((.permissions.ask // []) + (.permissions.deny // [])) | any(. == $rule)) | $rule] | join(", ")' <<<"$current")
+  [ -z "$kept" ] || echo "Left under ask or deny, where the project put them: $kept."
+  kept=$(jq -r --argjson ask "$ask" '[$ask[] as $rule | select((.permissions.allow // []) | any(. == $rule)) | $rule] | join(", ")' <<<"$current")
+  [ -z "$kept" ] || echo "Left under allow, where the project put them: $kept."
+  if [ "$(jq -S . <<<"$current")" = "$(jq -S . <<<"$merged")" ]; then
+    echo ".claude/settings.json has the permissions already."
+  elif confirm "Add the agent permissions to .claude/settings.json (allow git add, commit, push and gh pr ready; ask on force push)?"; then
+    mkdir -p "$(dirname "$settings")" && printf '%s\n' "$merged" >"$settings" && echo "  wrote .claude/settings.json"
+  fi
+fi
+
+# 5. Requiring the check changes how the whole team merges and needs admin rights, so it is printed, not run.
+cat <<TEXT
+
+To require the check on the default branch (admin rights; it changes how everyone merges), run:
+
+  gh api -X POST $api/rulesets --input - <<'JSON'
+  {"name": "pr-title", "target": "branch", "enforcement": "active",
+   "conditions": {"ref_name": {"include": ["~DEFAULT_BRANCH"], "exclude": []}},
+   "rules": [{"type": "required_status_checks",
+              "parameters": {"strict_required_status_checks_policy": false,
+                             "required_status_checks": [{"context": "check-title"}]}}]}
+  JSON
+
+Commit what was written. Sessions that start after that begin from the roadmap.
+TEXT

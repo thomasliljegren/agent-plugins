@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# Prints the normalized state of the adapter contract (skills/roadmap/references/adapter-contract.md) for a GitHub repository.
+# REST only: a cloud session's GitHub proxy refuses GraphQL queries of its own.
+# Never fails the session: when it cannot answer it prints the ROADMAP UNAVAILABLE line and exits 0.
+set -u
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+
+unavailable() {
+  echo "ROADMAP UNAVAILABLE: $1. Do not assume project status."
+  exit 0
+}
+
+command -v gh >/dev/null 2>&1 || unavailable "gh is not installed"
+slug=$(github_repo) || unavailable "$slug"
+api="repos/$slug"
+branch=${ROADMAP_BRANCH:-}
+now=${ROADMAP_NOW:-$(date -u +%s)}
+
+tmp=$(mktemp -d "${TMPDIR:-/tmp}/roadmap.XXXXXX") || unavailable "cannot create a temporary directory"
+trap 'rm -rf "$tmp"' EXIT
+trap 'kill $(jobs -p) 2>/dev/null; exit 143' TERM   # the entry point's time limit: take the gh calls along
+mkdir "$tmp/subs"
+
+get() {  # get NAME ARGS...: one REST GET into $tmp/NAME.json, in the background
+  local name=$1; shift
+  gh api -X GET "$@" >"$tmp/$name.json" 2>"$tmp/$name.err" &
+  pids="$pids $!"
+  names="$names $name"
+}
+
+settle() {  # wait for every get; the first failure ends the run with its reason
+  local pid status failed="" code=0
+  set -- $names
+  for pid in $pids; do
+    wait "$pid"; status=$?
+    if [ "$status" -ne 0 ] && [ -z "$failed" ]; then failed=$1; code=$status; fi
+    shift
+  done
+  pids=""; names=""
+  [ -z "$failed" ] || unavailable "$(gh_reason "$tmp/$failed.err" "$code")"
+}
+
+pids=""; names=""
+get repo "$api"
+get initiatives "$api/issues" -f labels="$(named initiative)" -f state=open -f sort=created -f direction=asc -f per_page=100
+get openPrs "$api/pulls" -f state=open -f sort=updated -f direction=desc -f per_page=100 --paginate
+get closedPrs "$api/pulls" -f state=closed -f sort=updated -f direction=desc -f per_page=100
+get bugs "$api/issues" -f labels="$(named bug)" -f state=open -f sort=created -f direction=asc -f per_page=100 --paginate
+get debt "$api/issues" -f labels="$(named debt)" -f state=open -f sort=created -f direction=asc -f per_page=100 --paginate
+if [ -n "$branch" ]; then
+  get branchPrs "$api/pulls" -f head="${slug%%/*}:$branch" -f state=all -f sort=created -f direction=desc -f per_page=1
+else
+  echo '[]' >"$tmp/branchPrs.json"
+fi
+settle
+
+# --paginate prints one array per page.
+for list in openPrs bugs debt; do
+  jq -s 'add // []' "$tmp/$list.json" >"$tmp/$list.all" 2>/dev/null || unavailable "GitHub's list of $list could not be read"
+done
+
+# Sub-issues come back in the order set on the parent, and that is the order of work.
+wanted=$(jq -r 'map(select(.pull_request == null)) | .[:20][] | select(.sub_issues_summary.total > 0) | .number' "$tmp/initiatives.json" 2>/dev/null) \
+  || unavailable "GitHub's list of initiatives could not be read"
+for number in $wanted; do
+  get "subs/$number" "$api/issues/$number/sub_issues" -f per_page=50
+done
+settle
+
+subs=$(for number in $wanted; do jq --arg number "$number" '{($number): .}' "$tmp/subs/$number.json"; done | jq -s 'add // {}') \
+  || unavailable "GitHub's sub-issues could not be read"
+
+state=$(jq -n --slurpfile repo "$tmp/repo.json" --slurpfile initiatives "$tmp/initiatives.json" \
+    --slurpfile openPrs "$tmp/openPrs.all" --slurpfile closedPrs "$tmp/closedPrs.json" \
+    --slurpfile bugs "$tmp/bugs.all" --slurpfile debt "$tmp/debt.all" --slurpfile branchPrs "$tmp/branchPrs.json" \
+    --argjson subs "$subs" \
+    '{repo: $repo[0], initiatives: $initiatives[0], subIssues: $subs, openPrs: $openPrs[0], closedPrs: $closedPrs[0],
+      bugs: $bugs[0], debt: $debt[0], branchPrs: $branchPrs[0]}' \
+  | jq -L "$adapter" -f "$adapter/normalize.jq" --arg project "$slug" --arg branch "$branch" --argjson now "$now" --argjson config "$config" 2>&1) \
+  || unavailable "adapters/github/normalize.jq could not read GitHub's answer ($(printf '%s' "$state" | head -n 1))"
+printf '%s\n' "$state"
