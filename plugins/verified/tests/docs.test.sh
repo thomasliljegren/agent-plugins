@@ -61,4 +61,6 @@ contains "the examples say the source of a heading that names no slice" "names n
 contains "the procedure checks what cites the file" "git grep -n VERIFIED.md" "$(cat "$R")"
 contains "the procedure resolves references by position" "the same test" "$(cat "$R")"
 
+contains "the skill names the source of a fact whose use changed" "[slice #5, slice #17]" "$(cat "$S")"
+
 finish
