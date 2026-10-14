@@ -2,7 +2,7 @@
 
 Read with `SKILL.md`. This brings a file grown another way (a section per slice, per task or per date; tables; superseded rows; entries that are not framework facts) into the skill's shape. The input is `VERIFIED.md` unless the owner names another file, or an index with its `verified/` folder.
 
-Work on the project's own branch for this change. Keep a copy of the file as it was (`git show HEAD:VERIFIED.md > <scratch>/old.md`): the check in phase 4 reads it.
+Work on the project's own branch for this change. Keep a copy of every file as it was, in one file: the check in phase 4 reads it. With the input split already, that is the index and each topic file: `for f in VERIFIED.md verified/*.md; do git show "HEAD:$f"; done > <scratch>/old.md` (with a file of another name, use its path).
 
 ## 1. Inventory
 
@@ -32,16 +32,22 @@ Then stop. Nothing is written before the owner says yes. A change the owner asks
 
 ## 4. Write
 
-1. Write the file, or the index and its folder, in the skill's shape: the opening paragraph, the index, the topics. Rewrite each fact as an entry (claim, what to do, evidence, source); a table row becomes a bullet. Carry identifiers, test names, commit hashes, versions, numbers, error messages and code across unchanged.
+1. Write the file, or the index and its folder, in the skill's shape: the opening paragraph, the index, the topics. Rewrite each fact as an entry (claim, what to do, evidence, source); a table row becomes a bullet, as `references/entry.md` shows, and a table cell's escaped bar (`\|`) becomes a plain `|` in it. Carry identifiers, test names, commit hashes, versions, numbers, error messages and code across unchanged.
 2. Write each move into its destination, in that document's own style. A move to a tracker follows the project's findings practice where it has one; otherwise list it for the owner and file nothing.
 3. Find references to the old headings elsewhere in the repository (`grep -rn "Slice #4 findings"`, and the like for each old heading) and point them at the new topic, except in documents the project treats as frozen.
 4. Write the tokens the approved proposal deletes to `<scratch>/deleted.txt`, one per line, as `scripts/preserved.sh --tokens <scratch>/old.md` prints them.
-5. Run the check:
+5. Collect what the moves added, and only that: a destination already repeats many tokens of the file (a pitfall list quotes its claims), and checking against the whole destination would hide a fact dropped by mistake.
 
    ```
-   bash scripts/preserved.sh <scratch>/old.md VERIFIED.md [verified/*.md] --moved <each destination changed> --deleted <scratch>/deleted.txt
+   git diff -U0 HEAD -- <each destination changed> | grep '^+' | grep -v '^+++' | sed 's/^+//' > <scratch>/moved.md
+   ```
+
+6. Run the check:
+
+   ```
+   bash scripts/preserved.sh <scratch>/old.md VERIFIED.md [verified/*.md] --moved <scratch>/moved.md --deleted <scratch>/deleted.txt
    ```
 
    It prints each token of the old file found in none of them. Put each one back, or, when the approved proposal deleted it, add it to `deleted.txt`. Run it until it exits 0.
-6. Run the project's own checks where the file is published or linked (a wiki build, a link check).
-7. Commit once: the file, the destinations and the fixed references together.
+7. Run the project's own checks where the file is published or linked (a wiki build, a link check).
+8. Commit once: the file, the destinations and the fixed references together.
