@@ -1,8 +1,7 @@
 {
   "name": "agent-plugins",
   "owner": {
-    "name": "Thomas Liljegren",
-    "email": "thliljegren@gmail.com"
+    "name": "Thomas Liljegren"
   },
   "metadata": {
     "description": "Cross-agent plugin collection: portable Agent Skills (SKILL.md) with Claude Code plugin wrappers.",
