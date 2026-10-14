@@ -1,0 +1,3 @@
+`AddMartenStore<T>`
+`UseDirectory`
+`Verify.Xunit`

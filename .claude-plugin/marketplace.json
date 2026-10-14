@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Cross-agent plugin collection: portable Agent Skills (SKILL.md) with Claude Code plugin wrappers.",
-    "version": "0.6.1"
+    "version": "0.7.0"
   },
   "plugins": [
     {
@@ -45,6 +45,18 @@
         "pull-requests",
         "multi-agent",
         "hooks"
+      ]
+    },
+    {
+      "name": "verified",
+      "source": "./plugins/verified",
+      "description": "Keeps what a project checked against its frameworks, libraries and tools in VERIFIED.md by topic, each fact with its evidence, and reorganises a file grown a section per slice into that shape without losing an identifier.",
+      "category": "productivity",
+      "keywords": [
+        "documentation",
+        "verification",
+        "findings",
+        "conventions"
       ]
     }
   ]
