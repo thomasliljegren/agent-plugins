@@ -45,6 +45,7 @@ Identifiers, test names, commit hashes, versions, numbers, error messages and co
 
 - A new entry goes under its topic, never at the end of the file. A new topic gets its line in the index.
 - A fact that stops holding is corrected in place, in the commit that finds out, and its source names the correction: `[slice #3, corrected slice #17]`. Nothing is marked superseded and kept.
+- A fact that still holds while the project's use of it changed keeps its claim, says in its evidence what pins it now, and names both slices: `[slice #5, slice #17]`.
 - An entry about a dependency the project no longer has is deleted.
 - Two entries that say one thing become one, with the evidence of both.
 - Where the project keeps a pitfall list (a "Known pitfalls" section in `CLAUDE.md`), the warning goes there and its evidence here, both in one commit.
