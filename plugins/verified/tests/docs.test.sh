@@ -33,4 +33,21 @@ for f in references/entry.md scripts/preserved.sh; do
 done
 contains "the README says what the plugin needs" "awk" "$(cat "$ROOT/README.md")"
 
+R="$ROOT/skills/verified/references/reorganize.md"
+check "the procedure exists" yes "$([ -f "$R" ] && echo yes)"
+contains "the skill names the procedure" "\`references/reorganize.md\`" "$(cat "$S")"
+for phase in "## 1. Inventory" "## 2. Classify" "## 3. Propose, and stop" "## 4. Write"; do
+  check "the procedure has the phase $phase" 1 "$(grep -cxF "$phase" "$R" 2>/dev/null)"
+done
+contains "the procedure runs the preservation check" "scripts/preserved.sh" "$(cat "$R" 2>/dev/null)"
+contains "the procedure waits for the owner" "Nothing is written before" "$(cat "$R" 2>/dev/null)"
+contains "the procedure spares frozen documents" "frozen" "$(cat "$R" 2>/dev/null)"
+C="$ROOT/commands/reorganize.md"
+check "the command exists" yes "$([ -f "$C" ] && echo yes)"
+check "the command has a description" 1 "$(sed -n '2p' "$C" 2>/dev/null | grep -c '^description: ')"
+contains "the command follows the procedure" "references/reorganize.md" "$(cat "$C" 2>/dev/null)"
+contains "the command runs the check from the plugin" '${CLAUDE_PLUGIN_ROOT}/skills/verified/scripts/preserved.sh' "$(cat "$C" 2>/dev/null)"
+contains "the skill names the command" "/verified:reorganize" "$(cat "$S")"
+contains "the README names the command" "/verified:reorganize" "$(cat "$ROOT/README.md")"
+
 finish
