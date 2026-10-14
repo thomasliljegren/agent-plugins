@@ -2,11 +2,13 @@
 
 Read with `SKILL.md`. This brings a file grown another way (a section per slice, per task or per date; tables; superseded rows; entries that are not framework facts) into the skill's shape. The input is `VERIFIED.md` unless the owner names another file, or an index with its `verified/` folder.
 
-Work on the project's own branch for this change. Keep a copy of every file as it was, in one file: the check in phase 4 reads it. With the input split already, that is the index and each topic file: `for f in VERIFIED.md verified/*.md; do git show "HEAD:$f"; done > <scratch>/old.md` (with a file of another name, use its path).
+Work on the project's own branch for this change. Keep a copy of every file as it was, in one file: the check in phase 4 reads it. With the input split already, that is the index and each topic file: `for f in $(git ls-files VERIFIED.md 'verified/*.md'); do git show "HEAD:$f"; done > <scratch>/old.md` (with a file of another name, use its path). `git ls-files` lists what exists, so the loop runs in a shell that refuses a pattern matching nothing (zsh) too.
 
 ## 1. Inventory
 
 Read the whole file. List every entry: a bullet, a table row, or a paragraph under a heading that makes one claim. Read each entry's source from the heading it sits under: `## Slice #3 findings` → `[slice #3]`, `## Spec 002, Task 4: Sources module` → `[spec 002, task 4]`, `## Spike results (2026-10-02)` → `[spike 2026-10-02]`. Count them; every one is accounted for in phase 3.
+
+Then find what cites the file (`git grep -n VERIFIED.md`): code comments, `CLAUDE.md` pitfall lists, ADRs. Check that each fact they cite is in the file. A cited fact that is not is a finding for the proposal: the comment points at evidence nobody recorded.
 
 ## 2. Classify
 
@@ -32,7 +34,7 @@ Then stop. Nothing is written before the owner says yes. A change the owner asks
 
 ## 4. Write
 
-1. Write the file, or the index and its folder, in the skill's shape: the opening paragraph, the index, the topics. Rewrite each fact as an entry (claim, what to do, evidence, source); a table row becomes a bullet, as `references/entry.md` shows, and a table cell's escaped bar (`\|`) becomes a plain `|` in it. Carry identifiers, test names, commit hashes, versions, numbers, error messages and code across unchanged.
+1. Write the file, or the index and its folder, in the skill's shape: the opening paragraph, the index, the topics. Rewrite each fact as an entry (claim, what to do, evidence, source); a table row becomes a bullet, as `references/entry.md` shows, and a table cell's escaped bar (`\|`) becomes a plain `|` in it. Entries move, so an entry that points at another by position ("the same test", "the code above", "the finding above") names it instead. Carry identifiers, test names, commit hashes, versions, numbers, error messages and code across unchanged.
 2. Write each move into its destination, in that document's own style. A move to a tracker follows the project's findings practice where it has one; otherwise list it for the owner and file nothing.
 3. Find references to the old headings elsewhere in the repository (`grep -rn "Slice #4 findings"`, and the like for each old heading) and point them at the new topic, except in documents the project treats as frozen.
 4. Write the tokens the approved proposal deletes to `<scratch>/deleted.txt`, one per line, as `scripts/preserved.sh --tokens <scratch>/old.md` prints them.

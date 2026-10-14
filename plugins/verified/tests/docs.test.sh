@@ -50,12 +50,15 @@ contains "the command runs the check from the plugin" '${CLAUDE_PLUGIN_ROOT}/ski
 contains "the skill names the command" "/verified:reorganize" "$(cat "$S")"
 contains "the README names the command" "/verified:reorganize" "$(cat "$ROOT/README.md")"
 
-contains "the procedure keeps every old file, the folder's too" 'for f in VERIFIED.md verified/*.md' "$(cat "$R")"
+contains "the procedure keeps every old file, the folder's too, in any shell" "git ls-files VERIFIED.md 'verified/*.md'" "$(cat "$R")"
 contains "the procedure checks a move against the lines it added only" "git diff -U0" "$(cat "$R")"
 contains "the procedure says a table cell's escaped bar becomes a bar" '`\|`' "$(cat "$R")"
 E="$ROOT/skills/verified/references/entry.md"
 check "the examples convert a table row" 1 "$(grep -cxF "## A table row" "$E")"
 contains "the examples say where a Source column goes" 'The "Source" column is evidence' "$(cat "$E")"
 contains "the examples say the source of a heading that names no slice" "names no slice" "$(cat "$E")"
+
+contains "the procedure checks what cites the file" "git grep -n VERIFIED.md" "$(cat "$R")"
+contains "the procedure resolves references by position" "the same test" "$(cat "$R")"
 
 finish
