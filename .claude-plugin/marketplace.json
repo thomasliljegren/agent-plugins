@@ -5,7 +5,7 @@
   },
   "metadata": {
     "description": "Cross-agent plugin collection: portable Agent Skills (SKILL.md) with Claude Code plugin wrappers.",
-    "version": "0.7.0"
+    "version": "0.7.1"
   },
   "plugins": [
     {

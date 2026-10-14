@@ -1,7 +1,7 @@
 {
   "name": "verified",
   "description": "Keeps what a project checked against its frameworks, libraries and tools in VERIFIED.md by topic, each fact with its evidence, and reorganises a file grown a section per slice into that shape without losing an identifier.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": {
     "name": "Thomas Liljegren"
   },
