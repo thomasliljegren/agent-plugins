@@ -38,7 +38,7 @@ Accept the same settings in plain words ("use 4 designers, low effort").
 |---|---|---|---|
 | `designers` (N) | 3 | 2–5 | clamp to the nearest bound |
 | `rounds` (R) | 2 | 1–2 | clamp to the nearest bound |
-| `lenses` | `pragmatist`, `domain-architecture`, `operations-runtime` | names from lenses.md, or free text | use free text as the brief; fewer lenses than N: fill from the defaults, then the menu |
+| `lenses` | `pragmatist`, `domain-architecture`, `operations-runtime` | names from lenses.md, or free text; a lens may repeat | use free text as the brief; fewer lenses than N: fill from the defaults, then the menu |
 | `models` | family preference per slot (models.md) | per-slot id or family | apply the models.md fallback |
 | `effort` | `high` | `low`, `medium`, `high`, `xhigh`; global or per slot | harness can't set it: "not applied" |
 | `judge-model` | strongest model from a family no designer used | model id | models.md fallback |
@@ -47,8 +47,9 @@ Accept the same settings in plain words ("use 4 designers, low effort").
 
 List every clamp, fallback and "not applied" at the checkpoint. Never drop a setting silently.
 
-Planned calls are `N + N×R + 1` (designs, debate rounds, judge), plus 1 shared retry: 10 calls at
-the defaults, 16 at most.
+Planned calls are `N + N×R + 1` (designs, debate rounds, judge), plus up to N repair calls (only
+for final designs with gaps, see Completeness) and 1 shared retry: 10 planned at the defaults (13
+with every repair), 16 at most (21 with every repair).
 
 ## Run state
 
@@ -62,6 +63,8 @@ framing.md
 drafts/<slot>.md  slots are A..E
 round-1/<slot>.md
 round-2/<slot>.md
+completeness.md   written by the orchestrator, no subagent
+repair/<slot>.md  only for slots that needed a repair
 judge.md
 ```
 
@@ -74,7 +77,7 @@ judge.md
   Peer labels)
 - `retry-used: <stage>/<slot>`
 - `proposal: <repo-relative path>`, written as soon as the proposal file exists
-- `status: <framing|approved|design|round-1|round-2|judge|written|validated|written-unvalidated|stopped:<reason>>`
+- `status: <framing|approved|design|round-1|round-2|completeness|judge|written|validated|written-unvalidated|stopped:<reason>>`
 
 ## Peer labels
 
@@ -113,11 +116,15 @@ A stage file is valid only if it has every heading prompts.md requires for that 
       Save to `round-1/`. Run the mutation check.
    2. Round 2, only if R=2: add the critiques aimed at each designer. Save to `round-2/`. Run the
       mutation check.
-5. **Judge.** Spawn the judge with the Judge prompt: final designs under shuffled peer labels, plus all
-   critiques and dispositions. Save to `judge.md`. Run the mutation check.
-6. **Write.**
+5. **Completeness.** See Completeness below. Write `completeness.md`, run any repairs, and run the
+   mutation check if a repair was spawned.
+6. **Judge.** Spawn the judge with the Judge prompt: final designs under shuffled peer labels, plus all
+   critiques and dispositions, plus the gaps still open in `completeness.md`, relabelled into the
+   judge's mapping. Save to `judge.md`. Run the mutation check.
+7. **Write.**
    1. Fill proposal-template.md into `docs/working/proposals/YYYY-MM-DD-<slug>.md`, creating the
-      folder if needed. Compute the scorecard totals yourself from the judge's per-criterion scores.
+      folder if needed. Compute the scorecard totals yourself from the judge's per-criterion scores,
+      for every design, ineligible ones included and marked.
       Never overwrite: if the path exists, use `-2`, `-3`, and so on. Append `proposal: <path>`
       and `status: written` to `run.md` straight away. If `run.md` already has a `proposal:` line,
       do not write a new file: re-validate and repair that file in place.
@@ -128,7 +135,30 @@ A stage file is valid only if it has every heading prompts.md requires for that 
       - Check that there are at least 2 mermaid blocks.
    3. Set `status: validated`, or `status: written-unvalidated` with the failures listed.
    4. Run the final mutation check, which allows the one proposal file.
-7. **Report.** See Report.
+8. **Report.** See Report.
+
+## Completeness
+
+The judge reads only each designer's final design: `round-<R>/<slot>.md`. A design that answered an
+item in an earlier draft but dropped it from the final text has not answered it. Check before the
+judge, so a gap gets fixed instead of deciding the result.
+
+1. For each slot, read the final design's `## Framing answers` and check it has an entry for every
+   requirement (`R1`, `R2`, …) and open question (`Q1`, `Q2`, …) in `framing.md`, and that each entry
+   says something, not "see above" or "unchanged".
+2. Write `completeness.md`: one table, a row per framing item, a column per slot, each cell `ok` or
+   `missing`. A slot's open gaps are its `missing` cells.
+3. For each slot with gaps, log `dispatch: repair/<slot>` and spawn one Repair prompt (prompts.md),
+   with that slot's model and effort, in parallel. No peer designs, so no `labels:` line.
+4. A repair is accepted only if the reply has every required heading and keeps every earlier
+   `## Key decisions` bullet word for word. Save an accepted reply to `repair/<slot>.md`; it becomes
+   that slot's final design. Otherwise keep the `round-<R>` design and note `repair rejected:
+   <reason>` under the table.
+5. Re-check accepted repairs and update the table. Never send a second repair.
+
+Repairs are best effort and outside the shared retry. A failed, invalid or rejected repair never
+uses the retry and never stops the run: the judge scores the gap instead (prompts.md, Judge). On
+resume, a `repair/<slot>` dispatch with no file is re-run once like any uncertain call.
 
 ## Checkpoint (hard stop)
 
@@ -148,7 +178,7 @@ The checkpoint message contains:
 2. The slug and the proposal path. Say if `docs/working/proposals/` will be created.
 3. A table of slots, with lens, requested model, resolved model, effort and fallback note for each,
    plus the judge.
-4. N, R, the planned calls (`N + N×R + 1`) and the 1 retry.
+4. N, R, the planned calls (`N + N×R + 1`), the up-to-N repair calls and the 1 retry.
 5. Every clamp, fallback and "not applied" setting.
 6. The reply forms: `approve`, `edit <setting>=<value>` (for example `edit rounds=1`), `edit
    framing` (the user edits the file, then replies `approve`), and `cancel`.
@@ -173,7 +203,8 @@ Every file you hand to the user is a link they can click, never a bare path to g
 1. Recompute the approval line from the current `framing.md` and settings. If it differs from the
    recorded one, or there is none, go back to the checkpoint and say why.
 2. If the user re-approves a *changed* approval line, the earlier designs answered a different
-   framing or panel. Move `drafts/`, `round-1/`, `round-2/` and `judge.md` into `superseded-<n>/` in
+   framing or panel. Move `drafts/`, `round-1/`, `round-2/`, `completeness.md`, `repair/` and
+   `judge.md` into `superseded-<n>/` in
    the state folder, keep the retry line, and restart from Design.
 3. If `run.md` has a `proposal:` line, go straight to Write step 2: validate and repair that file.
 4. Otherwise skip every valid stage file.
@@ -211,6 +242,7 @@ Every file you hand to the user is a link they can click, never a bare path to g
 | Session dies mid-stage | `resume` lists uncertain calls and re-runs them |
 | Framing or settings changed after approval | Back to the checkpoint; on re-approval, earlier designs move to `superseded-<n>/` and Design restarts |
 | Mutation check fails | Stop, list paths, never revert |
+| Final design misses a framing item | One repair call for that slot (see Completeness); if it fails, the judge scores the gap. Never uses the retry |
 | Judge returns UNRESOLVED | Write the proposal with the gates table and the reasons; status `validated` if checks pass |
 | Proposal fails validation | `written-unvalidated`, list the failures, keep state for repair |
 
@@ -221,11 +253,12 @@ End with:
 1. The proposal and the state folder as clickable links, and the proposal's status (`validated` or
    `written-unvalidated`).
 2. The winner and grafts, in 2–3 lines.
-3. Planned vs. actual calls, requested vs. actual model per slot, and every setting not applied.
+3. Planned vs. actual calls (repairs counted separately, with which slots were repaired),
+   requested vs. actual model per slot, and every setting not applied.
 4. Uncertain re-runs, if any, and the resume command if the run is incomplete.
 5. If the repo documents where working docs go (for example in `AGENTS.md`) and does not mention
    `docs/working/proposals/`, suggest adding it in a separate change. Do not edit it.
-6. Next step: turn section 7 into tickets, with the user's ticket-writing skill if one is
+6. Next step: turn section 8 into tickets, with the user's ticket-writing skill if one is
    installed. Default to one story. Cite the proposal by repo path; use a blob URL only if a pushed
    branch already contains the file.
 
@@ -247,3 +280,16 @@ End with:
 Experimental. It is worth keeping once a few real design problems, run in at least two clients,
 produce proposals that reviewers rate, blind, as more defensible than a single-agent proposal from
 the same framing.
+
+Before then, check whether lenses earn their place. By default each slot mixes a model and a lens,
+so a run cannot tell which one shaped a design. On one real framing, run two extra debates with
+`rounds=1`, each with its own slug. At each checkpoint, reply `edit framing` and replace that run's
+`framing.md` with the original run's, so all three answer the same framing:
+
+1. Same lens, different models: `slug=<slug>-models lenses=pragmatist,pragmatist,pragmatist`, with
+   the default model mix.
+2. Same model, different lenses: `slug=<slug>-lenses models=A:<id>,B:<id>,C:<id>` (one model id),
+   with the default lenses.
+
+Compare the `## Key decisions` of the drafts within each run. If the lens run spreads decisions much
+less than the model run, simplify the lenses (for example to one shared brief).

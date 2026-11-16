@@ -1,7 +1,7 @@
 {
   "name": "design-debate",
   "description": "Several agents design a solution independently, each with its own lens and where the client allows its own model family, critique each other over one or two rounds, and a judge picks one design. Ends in one illustrated proposal in docs/working/proposals/.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": {
     "name": "Thomas Liljegren"
   },
