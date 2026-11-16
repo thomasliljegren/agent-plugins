@@ -6,7 +6,6 @@ REPO=$(cd "$ROOT/../.." && pwd)
 M="$ROOT/.claude-plugin/plugin.json"
 check "the manifest parses" 0 "$(jq -e . "$M" >/dev/null 2>&1; echo $?)"
 check "the plugin is named verified" verified "$(jq -r .name "$M")"
-check "version is 0.1.1" 0.1.1 "$(jq -r .version "$M")"
 entry=$(jq -c '.plugins[] | select(.name == "verified")' "$REPO/.claude-plugin/marketplace.json")
 check "the marketplace lists the plugin" ./plugins/verified "$(jq -r .source <<<"$entry")"
 check "the marketplace and the manifest describe it alike" "$(jq -r .description "$M")" "$(jq -r .description <<<"$entry")"

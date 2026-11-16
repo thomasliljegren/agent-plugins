@@ -9,7 +9,6 @@ for m in $manifests; do
   check "$m parses" 0 "$(jq -e . "$ROOT/$m" >/dev/null 2>&1; echo $?)"
   check "$m matches the Claude manifest" "$ref" "$(jq -c "$shared" "$ROOT/$m")"
 done
-check "version is 0.2.0" 0.2.0 "$(jq -r .version "$ROOT/.claude-plugin/plugin.json")"
 check "the Claude manifest uses the default hooks/hooks.json" null "$(jq -r .hooks "$ROOT/.claude-plugin/plugin.json")"
 check "the manifests do not use the Agent Plugins 1.0 schema" 0 "$(cat $(for m in $manifests; do echo "$ROOT/$m"; done) | grep -c '\$schema')"
 

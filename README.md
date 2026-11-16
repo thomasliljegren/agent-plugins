@@ -52,6 +52,7 @@ Copy `plugins/<plugin>/skills/<skill>/` into your agent's skills directory. See 
 
 ```
 .claude-plugin/marketplace.json     # the marketplace: every plugin, and its version in metadata.version
+scripts/check-versions.sh           # every changed plugin has a higher version (tests in tests/)
 plugins/<plugin-name>/
 ├─ README.md                        # what it does, install, use
 ├─ .claude-plugin/plugin.json       # Claude Code plugin manifest
@@ -81,9 +82,17 @@ bash plugins/verified/tests/run.sh
 
 They need `bash` and `jq`. Their docs tests also check this README and the marketplace entry.
 
+Before a pull request, check that every plugin you changed has a higher version:
+
+```
+bash scripts/check-versions.sh [base]    # base defaults to origin/main
+```
+
+It compares each plugin with the merge base, counting commits and uncommitted and untracked files. A change under a plugin's `tests/` needs no bump. It also fails when one plugin's manifests (`.claude-plugin`, `.github/plugin`, `.codex-plugin`, `.cursor-plugin`) carry different versions. Its own tests are `bash tests/run.sh`.
+
 ## Adding a plugin
 
 1. Create `plugins/<name>/` with a `README.md`, a `.claude-plugin/plugin.json` and at least one skill under `skills/<skill-name>/SKILL.md`.
 2. Register it in `.claude-plugin/marketplace.json` under `plugins`, with the same description as its manifest, and add it to the table above.
 3. Skill frontmatter needs `name` and `description`; the description decides when agents load the skill, so make it trigger-rich.
-4. On any change, bump the plugin's `version` in its manifest and `metadata.version` in the marketplace, so an installed plugin picks it up.
+4. On any change outside `tests/`, raise the plugin's `version` in every manifest it has, and `metadata.version` in the marketplace, so an installed plugin picks it up. `scripts/check-versions.sh` checks the plugin's part.
