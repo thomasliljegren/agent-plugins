@@ -46,6 +46,7 @@ Copy `plugins/<plugin>/skills/<skill>/` into your agent's skills directory. See 
 
 | Plugin | Description |
 |---|---|
+| [design-debate](plugins/design-debate) | Several agents, each with its own lens and where possible its own model, design a solution independently, debate it, and a judge picks one. One hard-stop checkpoint after framing; ends in an illustrated proposal. Experimental. |
 | [hotchocolate-graphql](plugins/hotchocolate-graphql) | Architecture patterns and conventions for HotChocolate v16 GraphQL servers and Fusion v2 subgraphs. |
 | [model-policy](plugins/model-policy) | Keeps subagents on the best-value model tier that fits, gates frontier-tier subagents behind a written reason, logs every dispatch. Ships hooks for Claude Code, Copilot CLI, Codex CLI and Cursor. |
 | [roadmap](plugins/roadmap) | Agents sharing work through the team's own tracker: a live snapshot of what is done, claimed and next at every session start, and claims the others can see. GitHub issues and pull requests today. Claude Code only. |

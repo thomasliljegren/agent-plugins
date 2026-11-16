@@ -5,9 +5,22 @@
   },
   "metadata": {
     "description": "Cross-agent plugin collection: portable Agent Skills (SKILL.md) with Claude Code plugin wrappers.",
-    "version": "0.7.1"
+    "version": "0.8.0"
   },
   "plugins": [
+    {
+      "name": "design-debate",
+      "source": "./plugins/design-debate",
+      "description": "Several agents design a solution independently, each with its own lens and where the client allows its own model family, critique each other over one or two rounds, and a judge picks one design. Ends in one illustrated proposal in docs/working/proposals/.",
+      "category": "development",
+      "keywords": [
+        "design",
+        "multi-agent",
+        "debate",
+        "subagents",
+        "architecture"
+      ]
+    },
     {
       "name": "hotchocolate-graphql",
       "source": "./plugins/hotchocolate-graphql",
