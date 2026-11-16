@@ -14,14 +14,18 @@ Every subagent prompt includes this safety block verbatim as `{{safety_block}}`:
 The orchestrator writes the framing itself; this is its checklist, not a subagent prompt.
 
 1. Restate the problem in plain words.
-2. Requirements: only what the user stated. Mark anything inferred as "assumed".
+2. Requirements, numbered `R1`, `R2`, …: only what the user stated. Mark anything inferred as
+   "assumed".
 3. Non-goals.
-4. Success criteria: numbered, each one checkable.
+4. Success criteria, numbered `SC1`, `SC2`, …, each one checkable. Always include one scope/cost
+   criterion, marked `(scope/cost)`, even if the user did not ask for one, for example: modules
+   touched, new tables, services or components, and increments before the first visible fix. Without
+   it the scorecard rewards thoroughness only, and the leanest design cannot win on its strength.
 5. Grounding brief, about 300 words: the facts every designer needs, each cited as `path:line`.
    Read the repo's agent instructions (`AGENTS.md`, `CLAUDE.md`, `.github/copilot-instructions.md`),
    the nearest `README.md`, and the decision records that apply. End the brief with an
    `Invariants:` line listing the repo's architecture rules: the judge gates on them.
-6. Open questions the designs must answer.
+6. Open questions the designs must answer, numbered `Q1`, `Q2`, ….
 
 Required headings: `## Problem`, `## Requirements`, `## Non-goals`, `## Success criteria`,
 `## Grounding brief`, `## Open questions`.
@@ -47,6 +51,7 @@ Use exactly these headings:
 ## Summary
 ## Key decisions      (short, concrete, comparable statements, one per bullet)
 ## Risks
+## Framing answers    (one entry per R and Q item in the framing: "**R1:** answer in 1-2 sentences")
 ## Design
 ```
 
@@ -72,6 +77,7 @@ You are designer {{slot}} (lens: {{lens_name}}) in round 1 of a design debate.
    No generic praise.
 2. List what you adopt from the others, and why.
 3. Return your full revised design.
+{{final_round_note}}
 
 Use exactly these headings:
 ## Critiques         (one bullet per peer: "**Design P:** objection")
@@ -79,8 +85,17 @@ Use exactly these headings:
 ## Summary
 ## Key decisions
 ## Risks
+## Framing answers
 ## Design
 ```
+
+`{{final_round_note}}` is the Final-design note below when R=1, and empty when R=2.
+
+Final-design note, used verbatim in the last round:
+
+> This is your final design. It replaces your earlier ones: the judge reads only this text. Restate
+> every answer to the framing in full, including answers that have not changed since your draft. Do
+> not write "unchanged", "as before" or "see round 1".
 
 ## Round 2
 
@@ -107,6 +122,10 @@ For every incoming critique, give one disposition: accepted (and what you change
 evidence), or unresolved (and what would settle it). Then critique the competing designs again,
 and return your final design.
 
+This is your final design. It replaces your earlier ones: the judge reads only this text. Restate
+every answer to the framing in full, including answers that have not changed since your draft. Do
+not write "unchanged", "as before" or "see round 1".
+
 Use exactly these headings:
 ## Dispositions
 ## Critiques
@@ -114,6 +133,40 @@ Use exactly these headings:
 ## Summary
 ## Key decisions
 ## Risks
+## Framing answers
+## Design
+```
+
+## Repair
+
+Only for a slot whose final design misses framing items (see SKILL.md, Completeness). Same model
+and effort as the slot. No peer designs.
+
+```
+You are designer {{slot}} (lens: {{lens_name}}). Your final design below leaves some items in the
+framing unanswered. Answer them; do not redesign.
+
+## Approved framing
+{{framing}}
+
+## Your final design
+{{final_design}}
+
+## Unanswered items
+{{missing_items}}
+
+{{safety_block}}
+
+Return your full final design with the missing answers added. Keep every existing `## Key
+decisions` bullet word for word; add new bullets only if an answer needs one. Restate every answer
+in `## Framing answers`, not only the new ones.
+
+Use exactly these headings:
+## Repairs           (one bullet per unanswered item: what you added, and where)
+## Summary
+## Key decisions
+## Risks
+## Framing answers
 ## Design
 ```
 
@@ -133,24 +186,38 @@ You are the judge of a design debate. Pick a winner; do not average the designs.
 ## Critiques and dispositions from the debate
 {{critiques_and_dispositions}}
 
+## Gaps the orchestrator found
+{{open_gaps}}
+
 {{safety_block}}
 
-1. Gates (pass/fail per design): every mandatory requirement and non-goal in the framing, plus
-   the `Invariants:` and decided ADRs named in the grounding brief, and no committed credentials.
-   A design failing any gate is ineligible.
-2. Scorecard: each success criterion scored 1-5 per eligible design, each score with one cited
-   line of evidence. No weights, and no totals: the orchestrator adds them up.
+1. Gates (pass/fail per design). A gate fails only when a design breaks a rule: it contradicts a
+   mandatory requirement, breaches a non-goal, or violates the `Invariants:` or decided ADRs named
+   in the grounding brief, or commits credentials. A design failing any gate is ineligible. A
+   design that is silent on an item, or answers it only partly, passes the gate: score the gap in
+   step 2 instead.
+2. Scorecard: score every success criterion 1-5 for every design, ineligible ones included, each
+   score with one cited line of evidence. Where a design leaves an item unanswered, the criterion
+   covering it scores at most 2, with "not answered: <item>" as the evidence. No weights, and no
+   totals: the orchestrator adds them up.
 3. Winner: one eligible design. If none is eligible, say UNRESOLVED and why.
-4. Grafts: at most 3 decisions from other designs, each citing the critique that justifies it.
+4. Leanest viable: the eligible design with the best score on the `(scope/cost)` criterion (ties:
+   fewest new components). Name it, what it costs, and the risk it leaves compared with the winner.
+   If the winner is the leanest, say so.
+5. Grafts: at most 3 decisions from other designs, each citing the critique that justifies it.
    Label any detail you add that no critique supports as `unreviewed`.
-5. Rejected alternatives: per losing design, what lost and why.
+6. Rejected alternatives: per losing design, what lost and why.
 
 Use exactly these headings:
 ## Gates
 ## Scorecard
 ## Winner
+## Leanest viable
 ## Grafts
 ## Rejected alternatives
 ## Risks
 ## Open questions
 ```
+
+`{{open_gaps}}` lists, per design under the judge's peer labels, the `missing` cells left in
+`completeness.md` after repairs, or "none".

@@ -16,7 +16,7 @@ the run has nothing for it, and say so in one line instead.
 {{config_table}}
 
 Judge: {{judge_model}} (effort {{judge_effort}}). {{shared_family_note}}
-Calls: {{planned_calls}} planned, {{actual_calls}} made, retry {{retry_state}}.
+Calls: {{planned_calls}} planned, {{actual_calls}} made, retry {{retry_state}}, repairs {{repaired_slots_or_none}}.
 
 ## 1. Recommendation
 
@@ -38,25 +38,32 @@ Calls: {{planned_calls}} planned, {{actual_calls}} made, retry {{retry_state}}.
 {{per design: final position, what the recommendation took from it, why the rest lost}}
 
 ### Gates and scorecard
-{{gate table and scorecard from judge.md}}
+{{gate table and scorecard from judge.md: every design, ineligible ones included and marked, with
+your totals. An ineligible design's total is shown but cannot win.}}
 
-## 4. Where the debate changed minds
+## 4. Leanest viable option
+
+{{from the judge's Leanest viable: the cheapest eligible design, what it costs on the (scope/cost)
+criterion, and the risk it leaves compared with the recommendation. If the recommendation is the
+leanest, say so in one line.}}
+
+## 5. Where the debate changed minds
 
 | Topic | Before (first draft) | After (final) | Who moved whom |
 |---|---|---|---|
 {{rows from Adopted and Dispositions}}
 
-## 5. Risks and mitigations
+## 6. Risks and mitigations
 
 | Risk | Mitigation | Residual |
 |---|---|---|
 {{rows}}
 
-## 6. Open questions for the humans
+## 7. Open questions for the humans
 
 {{numbered list}}
 
-## 7. Proposed stories
+## 8. Proposed stories
 
 {{one story by default: title, value statement, testable acceptance criteria. Text only.
 Create tickets later, with a ticket-writing skill if one is installed.}}

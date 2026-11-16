@@ -22,7 +22,7 @@ design-debate resume <slug>
 design-debate status <slug>
 ```
 
-Every setting has a default. The run frames the problem, then stops once, at a checkpoint that ends the agent's turn: approval is a new message from you, so autopilot cannot approve it. The checkpoint shows the framing as a link, each slot's lens, model and effort, any setting it clamped or could not apply, and the planned calls (`N + N×R + 1`, plus one retry; 10 at the defaults).
+Every setting has a default. The run frames the problem, then stops once, at a checkpoint that ends the agent's turn: approval is a new message from you, so autopilot cannot approve it. The checkpoint shows the framing as a link, each slot's lens, model and effort, any setting it clamped or could not apply, and the planned calls (`N + N×R + 1`, plus one retry; 10 at the defaults). Before the judge, a final design that skipped a requirement or open question gets one repair call, so the judge scores what a design proposes, not what it forgot to restate.
 
 ## What a run touches
 

@@ -3,6 +3,9 @@
 A lens is the point of view a designer argues from. Pass the lens brief verbatim into the designer
 prompt. Lenses keep designers from converging on the same answer for the same reasons.
 
+A lens may repeat across slots, for example `lenses=pragmatist,pragmatist,operations-runtime`. Each
+slot keeps its own model, so a repeated lens shows how models differ under the same brief.
+
 ## Defaults (used when `lenses=` is not given)
 
 ### `pragmatist`
