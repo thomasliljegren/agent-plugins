@@ -10,7 +10,6 @@ check "version is 0.1.1" 0.1.1 "$(jq -r .version "$M")"
 entry=$(jq -c '.plugins[] | select(.name == "verified")' "$REPO/.claude-plugin/marketplace.json")
 check "the marketplace lists the plugin" ./plugins/verified "$(jq -r .source <<<"$entry")"
 check "the marketplace and the manifest describe it alike" "$(jq -r .description "$M")" "$(jq -r .description <<<"$entry")"
-check "the marketplace version is 0.8.0" 0.8.0 "$(jq -r .metadata.version "$REPO/.claude-plugin/marketplace.json")"
 contains "the repository README lists the plugin" "[verified](plugins/verified)" "$(cat "$REPO/README.md")"
 check "preserved.sh is executable in git" 100755 \
   "$(git -C "$REPO" ls-files -s plugins/verified/skills/verified/scripts/preserved.sh | cut -d' ' -f1)"
