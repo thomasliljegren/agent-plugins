@@ -1,6 +1,6 @@
 ---
 name: design-debate
-description: "Run a multi-agent design debate. Several designers, each with its own lens and where possible its own model family, design a solution independently, critique each other over one or two rounds, and a judge picks one design. The result is an illustrated proposal at docs/working/proposals/YYYY-MM-DD-<slug>.md. Use when the user says 'design debate', 'have agents debate this', 'multi-agent design', 'compare designs from several models', or wants several independent designs argued out before deciding. Designers, rounds, lenses, models and effort are configurable at invoke time."
+description: "Run a multi-agent design debate. Several designers, each with its own lens and where possible its own model family, design a solution independently, critique each other over a set number of rounds or until their designs stop changing, and a judge picks one design. The result is an illustrated proposal at docs/working/proposals/YYYY-MM-DD-<slug>.md. Use when the user says 'design debate', 'have agents debate this', 'multi-agent design', 'compare designs from several models', or wants several independent designs argued out before deciding. Designers, rounds, lenses, models and effort are configurable at invoke time, and their defaults in a design-debate.json file."
 ---
 
 # Design debate
@@ -32,12 +32,12 @@ design-debate resume <slug>
 design-debate status <slug>
 ```
 
-Accept the same settings in plain words ("use 4 designers, low effort").
+Accept the same settings in plain words ("use 4 designers, low effort", "debate until they agree").
 
 | Setting | Default | Allowed | When out of range |
 |---|---|---|---|
 | `designers` (N) | 3 | 2–5 | clamp to the nearest bound |
-| `rounds` (R) | 2 | 1–2 | clamp to the nearest bound |
+| `rounds` (R) | 2 | a whole number from 1 up, with no upper bound, or `auto` (see Auto rounds) | below 1: use 1 |
 | `lenses` | `pragmatist`, `domain-architecture`, `operations-runtime` | names from lenses.md, or free text; a lens may repeat | use free text as the brief; fewer lenses than N: fill from the defaults, then the menu |
 | `models` | family preference per slot (models.md) | per-slot id or family | apply the models.md fallback |
 | `effort` | `high` | `low`, `medium`, `high`, `xhigh`; global or per slot | harness can't set it: "not applied" |
@@ -49,7 +49,57 @@ List every clamp, fallback and "not applied" at the checkpoint. Never drop a set
 
 Planned calls are `N + N×R + 1` (designs, debate rounds, judge), plus up to N repair calls (only
 for final designs with gaps, see Completeness) and 1 shared retry: 10 planned at the defaults (13
-with every repair), 16 at most (21 with every repair).
+with every repair). There is no upper bound: the checkpoint shows the count, and approving the
+checkpoint approves it. With `rounds=auto` the count is not known in advance: show the calls up to
+the end of round 1 (`2N + 1`, judge included) and `N` per further round.
+
+### Defaults files
+
+Settings not given at invoke time come from, highest first:
+
+1. the invocation;
+2. `design-debate.json` at the repo root, for the project;
+3. `${XDG_CONFIG_HOME:-~/.config}/design-debate/config.json`, for the user;
+4. the defaults in the table above.
+
+Each file is a JSON object whose keys are the setting names above. Both files are optional, and a
+key in a higher file replaces the same key in a lower one, whole (a `models` object or `lenses`
+list is not merged). `slug` is per run, so it is never read from a file.
+
+```json
+{
+  "designers": 3,
+  "rounds": "auto",
+  "lenses": ["pragmatist", "domain-architecture", "operations-runtime"],
+  "models": { "A": "opus", "B": "sonnet" },
+  "effort": "high",
+  "judge-model": "opus",
+  "judge-effort": "xhigh"
+}
+```
+
+A value from a file is checked like one given at invoke time, with the same out-of-range rules.
+A file that is not a JSON object is ignored as a whole. An unknown key, or `slug`, is ignored. List
+both at the checkpoint, so a typo never passes silently. Read the files only at preflight and on
+resume: a file changed mid-run changes nothing until `resume`, which then goes back to the
+checkpoint (the approval line differs).
+
+### Auto rounds
+
+With `rounds=auto`, run debate rounds until one changes no design:
+
+- After each round, compare every designer's `## Key decisions` with its own previous design
+  (the draft, for round 1), bullet by bullet, ignoring order and surrounding whitespace.
+- **Converged:** every designer's bullets are the same as in its previous design. Append
+  `converged: round-<k>` to `run.md`, and go to Completeness with round k as the final round.
+- **Cycling:** not converged, but every designer's bullets match one of its own earlier designs.
+  Another round would only repeat the debate. Append `cycled: round-<k>` and treat
+  it as converged.
+- Otherwise run another round.
+
+Every auto round carries the Final-design note (prompts.md), since any round may be the last. A run
+whose designers never settle keeps going; the user can stop it, and `resume` continues from the
+next round. Report how many rounds ran and why they ended.
 
 ## Run state
 
@@ -61,8 +111,7 @@ shows in `git status`, and is per worktree.
 run.md            settings table, approval line, dispatch log, retry line, status
 framing.md
 drafts/<slot>.md  slots are A..E
-round-1/<slot>.md
-round-2/<slot>.md
+round-<k>/<slot>.md  one folder per round, from round-1
 completeness.md   written by the orchestrator, no subagent
 repair/<slot>.md  only for slots that needed a repair
 judge.md
@@ -70,24 +119,26 @@ judge.md
 
 `run.md` lines, appended as they happen:
 
-- `approval: <hash>|N=<n>|R=<r>|<slot:lens:model:effort,...>|judge=<model:effort>`, where `<hash>` is
+- `approval: <hash>|N=<n>|R=<r or auto>|<slot:lens:model:effort,...>|judge=<model:effort>`, where `<hash>` is
   `git hash-object framing.md`
 - `dispatch: <stage>/<slot> <ISO time>`, written before every subagent spawn
 - `labels: <stage>/<reader> P=<slot>,Q=<slot>,...`, written before each round or judge spawn (see
   Peer labels)
 - `retry-used: <stage>/<slot>`
+- `converged: round-<k>` or `cycled: round-<k>`, only with `rounds=auto` (see Auto rounds)
 - `proposal: <repo-relative path>`, written as soon as the proposal file exists
-- `status: <framing|approved|design|round-1|round-2|completeness|judge|written|validated|written-unvalidated|stopped:<reason>>`
+- `status: <framing|approved|design|round-<k>|completeness|judge|written|validated|written-unvalidated|stopped:<reason>>`
 
 ## Peer labels
 
 Designers and the judge never see slot letters for other designs. Show designs under the peer
 labels `P`, `Q`, `R`, `S`, `T`, shuffled per reader, so a label can never be mistaken for a slot.
 
-- Before each round-1, round-2 or judge spawn, append that reader's mapping to `run.md`, for example
+- Before each round or judge spawn, append that reader's mapping to `run.md`, for example
   `labels: round-1/A P=C,Q=B` or `labels: judge P=B,Q=A,R=C`.
-- Map every critique back to its slot with that line before storing or forwarding it. Round 2 gets
-  each designer the critiques aimed at its own slot, relabelled into that designer's new mapping.
+- Map every critique back to its slot with that line before storing or forwarding it. Each round
+  after the first gets each designer the critiques aimed at its own slot in the round before,
+  relabelled into that designer's new mapping.
   The judge's critiques and dispositions are relabelled into the judge's mapping.
 - Map the judge's winner and grafts back to slots with the judge's `labels:` line before filling
   the proposal. On resume, always use the recorded lines; never reshuffle a completed stage.
@@ -100,7 +151,7 @@ A stage file is valid only if it has every heading prompts.md requires for that 
    1. Resolve the repo root.
    2. Record the baseline signature (see Mutation check in Safety) in `run.md`.
    3. Detect the harness and read the subagent tool's live model list.
-   4. Parse the settings.
+   4. Resolve the settings from the invocation and the defaults files (see Defaults files).
    5. If a state folder exists for the slug, do not start a new run over it. Say so in plain text,
       with its status and the `resume <slug>` command, and end your turn. Never offer it through an
       ask-user or question tool.
@@ -111,11 +162,14 @@ A stage file is valid only if it has every heading prompts.md requires for that 
 3. **Design.** Spawn N designers in parallel with the Designer prompt, each with its slot's lens,
    model and effort. Log each dispatch first. Save each valid reply to `drafts/<slot>.md`. Run the
    mutation check.
-4. **Debate.**
+4. **Debate.** Run the rounds in order, one at a time. Save each to `round-<k>/` and run the
+   mutation check after each.
    1. Round 1: every designer gets its own draft and every peer under shuffled peer labels.
-      Save to `round-1/`. Run the mutation check.
-   2. Round 2, only if R=2: add the critiques aimed at each designer. Save to `round-2/`. Run the
-      mutation check.
+   2. Rounds 2 to R, or with `rounds=auto` until they converge (see Auto rounds): the Rebuttal
+      prompt, with each designer's round k−1 design, the round k−1 critiques aimed at it, and its
+      peers' round k−1 designs.
+   3. The last round carries the Final-design note (prompts.md); with `rounds=auto`, every round
+      does.
 5. **Completeness.** See Completeness below. Write `completeness.md`, run any repairs, and run the
    mutation check if a repair was spawned.
 6. **Judge.** Spawn the judge with the Judge prompt: final designs under shuffled peer labels, plus all
@@ -139,7 +193,7 @@ A stage file is valid only if it has every heading prompts.md requires for that 
 
 ## Completeness
 
-The judge reads only each designer's final design: `round-<R>/<slot>.md`. A design that answered an
+The judge reads only each designer's final design: `round-<k>/<slot>.md` for the last round run. A design that answered an
 item in an earlier draft but dropped it from the final text has not answered it. Check before the
 judge, so a gap gets fixed instead of deciding the result.
 
@@ -152,7 +206,7 @@ judge, so a gap gets fixed instead of deciding the result.
    with that slot's model and effort, in parallel. No peer designs, so no `labels:` line.
 4. A repair is accepted only if the reply has every required heading and keeps every earlier
    `## Key decisions` bullet word for word. Save an accepted reply to `repair/<slot>.md`; it becomes
-   that slot's final design. Otherwise keep the `round-<R>` design and note `repair rejected:
+   that slot's final design. Otherwise keep the last round's design and note `repair rejected:
    <reason>` under the table.
 5. Re-check accepted repairs and update the table. Never send a second repair.
 
@@ -178,8 +232,10 @@ The checkpoint message contains:
 2. The slug and the proposal path. Say if `docs/working/proposals/` will be created.
 3. A table of slots, with lens, requested model, resolved model, effort and fallback note for each,
    plus the judge.
-4. N, R, the planned calls (`N + N×R + 1`), the up-to-N repair calls and the 1 retry.
-5. Every clamp, fallback and "not applied" setting.
+4. N, R, the planned calls (`N + N×R + 1`, or for `rounds=auto` the calls through round 1 and
+   `N` per further round), the up-to-N repair calls and the 1 retry.
+5. Every clamp, fallback and "not applied" setting, which defaults files were read, which settings
+   came from them, and every ignored file or key.
 6. The reply forms: `approve`, `edit <setting>=<value>` (for example `edit rounds=1`), `edit
    framing` (the user edits the file, then replies `approve`), and `cancel`.
 
@@ -200,10 +256,10 @@ Every file you hand to the user is a link they can click, never a bare path to g
 
 `design-debate resume <slug>`:
 
-1. Recompute the approval line from the current `framing.md` and settings. If it differs from the
+1. Recompute the approval line from the current `framing.md` and settings, defaults files included. If it differs from the
    recorded one, or there is none, go back to the checkpoint and say why.
 2. If the user re-approves a *changed* approval line, the earlier designs answered a different
-   framing or panel. Move `drafts/`, `round-1/`, `round-2/`, `completeness.md`, `repair/` and
+   framing or panel. Move `drafts/`, every `round-<k>/`, `completeness.md`, `repair/` and
    `judge.md` into `superseded-<n>/` in
    the state folder, keep the retry line, and restart from Design.
 3. If `run.md` has a `proposal:` line, go straight to Write step 2: validate and repair that file.
@@ -253,7 +309,8 @@ End with:
 1. The proposal and the state folder as clickable links, and the proposal's status (`validated` or
    `written-unvalidated`).
 2. The winner and grafts, in 2–3 lines.
-3. Planned vs. actual calls (repairs counted separately, with which slots were repaired),
+3. Planned vs. actual calls (repairs counted separately, with which slots were repaired), the
+   rounds run (with `rounds=auto`: and whether they converged or cycled),
    requested vs. actual model per slot, and every setting not applied.
 4. Uncertain re-runs, if any, and the resume command if the run is incomplete.
 5. If the repo documents where working docs go (for example in `AGENTS.md`) and does not mention

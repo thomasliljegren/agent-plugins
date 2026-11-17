@@ -76,7 +76,8 @@ You are designer {{slot}} (lens: {{lens_name}}) in round 1 of a design debate.
 1. For each competing design, give the single strongest specific objection, with evidence.
    No generic praise.
 2. List what you adopt from the others, and why.
-3. Return your full revised design.
+3. Return your full revised design. Keep a `## Key decisions` bullet word for word unless you
+   changed that decision.
 {{final_round_note}}
 
 Use exactly these headings:
@@ -89,42 +90,44 @@ Use exactly these headings:
 ## Design
 ```
 
-`{{final_round_note}}` is the Final-design note below when R=1, and empty when R=2.
+`{{final_round_note}}` is the Final-design note below in the last round (here: R=1) and in every
+round with `rounds=auto`, and empty otherwise. The orchestrator compares `## Key decisions` between
+rounds to detect convergence (SKILL.md, Auto rounds), so the word-for-word rule applies in every
+round.
 
-Final-design note, used verbatim in the last round:
+Final-design note:
 
 > This is your final design. It replaces your earlier ones: the judge reads only this text. Restate
 > every answer to the framing in full, including answers that have not changed since your draft. Do
 > not write "unchanged", "as before" or "see round 1".
 
-## Round 2
+## Rebuttal
 
-Only when R=2. The designer sees the critiques aimed at it.
+Rounds 2 and later. In round `{{round}}` the designer sees its own design from round `{{prev}}`
+(`{{round}}` − 1), the critiques aimed at it in that round, and its peers' designs from that round.
 
 ```
-You are designer {{slot}} (lens: {{lens_name}}) in round 2, the rebuttal round.
+You are designer {{slot}} (lens: {{lens_name}}) in round {{round}}, a rebuttal round.
 
 ## Approved framing
 {{framing}}
 
-## Your round 1 design
-{{own_round1}}
+## Your round {{prev}} design
+{{own_previous}}
 
 ## Critiques aimed at your design
 {{incoming_critiques}}
 
-## Competing round 1 designs
+## Competing round {{prev}} designs
 {{peers_anonymised_shuffled}}
 
 {{safety_block}}
 
 For every incoming critique, give one disposition: accepted (and what you changed), rebutted (with
 evidence), or unresolved (and what would settle it). Then critique the competing designs again,
-and return your final design.
-
-This is your final design. It replaces your earlier ones: the judge reads only this text. Restate
-every answer to the framing in full, including answers that have not changed since your draft. Do
-not write "unchanged", "as before" or "see round 1".
+and return your full revised design. Keep a `## Key decisions` bullet word for word unless you
+changed that decision.
+{{final_round_note}}
 
 Use exactly these headings:
 ## Dispositions
