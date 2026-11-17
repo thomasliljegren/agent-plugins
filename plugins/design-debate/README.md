@@ -1,6 +1,6 @@
 # design-debate
 
-Puts a design problem to several agents at once. Each designer works independently, with its own lens (pragmatist, domain and architecture fit, operations and runtime, or one you name) and, where the client allows it, its own model family. They critique each other over one or two rounds, and a judge gates the designs on the framing and the repo's invariants, scores them, and picks one. The result is one illustrated proposal at `docs/working/proposals/YYYY-MM-DD-<slug>.md`.
+Puts a design problem to several agents at once. Each designer works independently, with its own lens (pragmatist, domain and architecture fit, operations and runtime, or one you name) and, where the client allows it, its own model family. They critique each other over a set number of rounds or until their designs stop changing, and a judge gates the designs on the framing and the repo's invariants, scores them, and picks one. The result is one illustrated proposal at `docs/working/proposals/YYYY-MM-DD-<slug>.md`.
 
 Experimental.
 
@@ -22,7 +22,15 @@ design-debate resume <slug>
 design-debate status <slug>
 ```
 
-Every setting has a default. The run frames the problem, then stops once, at a checkpoint that ends the agent's turn: approval is a new message from you, so autopilot cannot approve it. The checkpoint shows the framing as a link, each slot's lens, model and effort, any setting it clamped or could not apply, and the planned calls (`N + N×R + 1`, plus one retry; 10 at the defaults). Before the judge, a final design that skipped a requirement or open question gets one repair call, so the judge scores what a design proposes, not what it forgot to restate.
+`rounds` takes any whole number from 1 up, or `auto`: rebuttal rounds run until no designer changes its key decisions (or the designers go in a circle), however many rounds that takes.
+
+Every setting has a default, and you can set your own defaults in JSON, with the setting names as keys (`slug` excepted): `design-debate.json` at the repo root for a project, and `~/.config/design-debate/config.json` (under `$XDG_CONFIG_HOME` when set) for yourself. The invocation wins over the project file, which wins over yours:
+
+```json
+{ "rounds": "auto", "designers": 4, "models": { "A": "opus", "B": "sonnet" } }
+```
+
+The run frames the problem, then stops once, at a checkpoint that ends the agent's turn: approval is a new message from you, so autopilot cannot approve it. The checkpoint shows the framing as a link, each slot's lens, model and effort, which settings came from a defaults file, any setting it clamped, ignored or could not apply, and the planned calls (`N + N×R + 1`, plus one retry; 10 at the defaults; with `rounds=auto`, the calls through round 1 and `N` per further round). Before the judge, a final design that skipped a requirement or open question gets one repair call, so the judge scores what a design proposes, not what it forgot to restate.
 
 ## What a run touches
 
