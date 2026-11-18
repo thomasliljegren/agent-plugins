@@ -5,13 +5,13 @@
   },
   "metadata": {
     "description": "Cross-agent plugin collection: portable Agent Skills (SKILL.md) with Claude Code plugin wrappers.",
-    "version": "0.9.0"
+    "version": "0.10.0"
   },
   "plugins": [
     {
       "name": "design-debate",
       "source": "./plugins/design-debate",
-      "description": "Several agents design a solution independently, each with its own lens and where the client allows its own model family, critique each other over a set number of rounds or until their designs stop changing, and a judge picks one design. Ends in one illustrated proposal in docs/working/proposals/.",
+      "description": "Several agents design a solution independently, each with its own lens and where the client allows its own model family, critique each other over a set number of rounds or until their designs stop changing, and a judge picks one design. Ends in a run folder in docs/working/design-debates/ with the framing and one illustrated proposal.",
       "category": "development",
       "keywords": [
         "design",
