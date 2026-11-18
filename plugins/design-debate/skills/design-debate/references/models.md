@@ -13,7 +13,7 @@ model of that family.
 |---|---|---|---|
 | A | Claude | opus | session default |
 | B | GPT | sonnet | session default |
-| C | Gemini | opus | session default |
+| C | Gemini | fable | session default |
 | D | Claude (a different tier from A) | sonnet | session default |
 | E | GPT (a different tier from B) | haiku | session default |
 

@@ -374,7 +374,7 @@ End with:
   designers of one stage together, in parallel. The live model list is in the `task` tool's `model`
   parameter.
 - **Claude Code:** spawn with `Task`, several in one message for parallelism, with
-  `model: opus|sonnet|haiku`. Only Claude models are available, so the judge always shares a family
+  `model: opus|sonnet|haiku|fable`. Only Claude models are available, so the judge always shares a family
   with a designer: declare it. Effort is not applied.
 - **Other clients** (Codex, OpenCode, VS Code): untested. Run only if a subagent tool exists (see
   Requires a subagent tool). Use the models.md "Other harnesses" column, and say in the report that

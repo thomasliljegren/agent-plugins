@@ -43,4 +43,4 @@ The run frames the problem into the run folder's `framing.md`, then stops once, 
 | Client | Designers | Judge | Effort |
 |---|---|---|---|
 | Copilot | Claude, GPT and Gemini families by slot | a family no designer used | per call |
-| Claude Code | opus and sonnet by slot | shares a family, declared in the proposal | not applied |
+| Claude Code | opus, sonnet and fable by slot | shares a family, declared in the proposal | not applied |
