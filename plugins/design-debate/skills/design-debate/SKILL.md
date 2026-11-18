@@ -12,7 +12,7 @@ a subagent write to the repository, and you never commit.
 
 References, all bundled:
 
-- @./references/lenses.md — lens briefs and the optional menu
+- @./references/lenses.md — lens briefs, the optional menu, and the lens-fit check
 - @./references/models.md — model family per slot, fallbacks, judge rule, effort per harness
 - @./references/prompts.md — every subagent prompt and its required headings
 - @./references/proposal-template.md — the proposal skeleton
@@ -241,6 +241,10 @@ Present the checkpoint, then **end your turn**.
 - Silence, a timeout, an automated reply or "continue on your own" instructions are not approval.
   In autopilot, stop at the checkpoint anyway and say why.
 
+Each time you present the checkpoint (after Frame, after any `edit`, and on resume), first rate
+the lenses against the current `framing.md` and lenses (see Lens fit in lenses.md). The rating goes
+in the checkpoint message only, never in `framing.md`.
+
 The checkpoint message contains:
 
 1. `framing.md` (in the run folder) and the state folder as clickable links (see Linking outputs),
@@ -248,16 +252,20 @@ The checkpoint message contains:
 2. The slug and the run folder, and say that it was created for this run. The user may commit it.
 3. A table of slots, with lens, requested model, resolved model, effort and fallback note for each,
    plus the judge.
-4. N, R, the planned calls (`N + N×R + 1`, or for `rounds=auto` the calls through round 1 and
+4. Lens fit (lenses.md): each lens `fits` or `weak` with its slots and reason, 2–3 suggestions
+   per weak lens, and the ready-to-paste `edit lenses=...` line; or one line saying every lens fits.
+5. N, R, the planned calls (`N + N×R + 1`, or for `rounds=auto` the calls through round 1 and
    `N` per further round), the up-to-N repair calls and the 1 retry.
-5. Every clamp, fallback and "not applied" setting, which defaults files were read, which settings
+6. Every clamp, fallback and "not applied" setting, which defaults files were read, which settings
    came from them, and every ignored file or key.
-6. The reply forms: `approve`, `edit <setting>=<value>` (for example `edit rounds=1`), `edit
+7. The reply forms: `approve`, `edit <setting>=<value>` (for example `edit rounds=1`), `edit
    framing` (the user edits `<run-dir>/framing.md` in place, then replies `approve`), and `cancel`.
 
 On approve, append the approval line to `run.md`, record the baseline signature (see Mutation check
 in Safety), and set `status: approved`. The baseline comes after approval, so whatever the user did in
-the repo while reviewing is not blamed on a subagent. On any edit, re-show the checkpoint. On
+the repo while reviewing is not blamed on a subagent. If `framing.md` changed since the checkpoint
+was shown (`edit framing`), rate the lenses again and show the result with the approval; it does not
+reopen the checkpoint. On any other edit, re-show the checkpoint. On
 `cancel`, append `status: stopped:cancelled` and end.
 
 ## Linking outputs

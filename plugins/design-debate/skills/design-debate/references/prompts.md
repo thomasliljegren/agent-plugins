@@ -195,7 +195,7 @@ You are the judge of a design debate. Pick a winner; do not average the designs.
 {{safety_block}}
 
 1. Gates (pass/fail per design). A gate fails only when a design breaks a rule: it contradicts a
-   mandatory requirement, breaches a non-goal, or violates the `Invariants:` or decided ADRs named
+   mandatory requirement, breaches a non-goal, or violates the `Invariants:` or decision records named
    in the grounding brief, or commits credentials. A design failing any gate is ineligible. A
    design that is silent on an item, or answers it only partly, passes the gate: score the gap in
    step 2 instead.
