@@ -10,6 +10,7 @@ the run has nothing for it, and say so in one line instead.
 **Status:** working proposal, produced by a {{N}}-designer, {{R}}-round design debate on {{date}}
 **Winner:** slot {{winner_slot}} ({{winner_lens}}), with {{graft_count}} grafts
 **Run:** `{{slug}}` (state is local to the author's worktree and never committed; do not put absolute paths in this file)
+**Framing:** [framing.md](./framing.md), the approved framing this proposal answers
 
 | Slot | Lens | Requested model | Actual model | Effort |
 |---|---|---|---|---|

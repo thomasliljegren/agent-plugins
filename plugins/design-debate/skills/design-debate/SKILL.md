@@ -1,13 +1,14 @@
 ---
 name: design-debate
-description: "Run a multi-agent design debate. Several designers, each with its own lens and where possible its own model family, design a solution independently, critique each other over a set number of rounds or until their designs stop changing, and a judge picks one design. The result is an illustrated proposal at docs/working/proposals/YYYY-MM-DD-<slug>.md. Use when the user says 'design debate', 'have agents debate this', 'multi-agent design', 'compare designs from several models', or wants several independent designs argued out before deciding. Designers, rounds, lenses, models and effort are configurable at invoke time, and their defaults in a design-debate.json file."
+description: "Run a multi-agent design debate. Several designers, each with its own lens and where possible its own model family, design a solution independently, critique each other over a set number of rounds or until their designs stop changing, and a judge picks one design. The result is a run folder, docs/working/design-debates/YYYY-MM-DD-<slug>/, holding the framing and an illustrated proposal. Use when the user says 'design debate', 'have agents debate this', 'multi-agent design', 'compare designs from several models', or wants several independent designs argued out before deciding. Designers, rounds, lenses, models and effort are configurable at invoke time, and their defaults in a design-debate.json file."
 ---
 
 # Design debate
 
 You are the orchestrator. You frame the problem, stop once for the user to approve the framing, then
-run designers and a judge as subagents, and write one proposal. You never let a subagent write to
-the repository, and you never commit.
+run designers and a judge as subagents, and write one proposal. The framing and the proposal go in
+the run folder, `docs/working/design-debates/YYYY-MM-DD-<slug>/`, so both can be committed. You never let
+a subagent write to the repository, and you never commit.
 
 References, all bundled:
 
@@ -103,13 +104,24 @@ next round. Report how many rounds ran and why they ended.
 
 ## Run state
 
-Keep state outside the working tree, in
+The run folder in the repo holds what the user keeps:
+
+```
+docs/working/design-debates/YYYY-MM-DD-<slug>/
+  framing.md        written at Frame; the user edits it here at the checkpoint
+  proposal.md       written at Write (proposal-2.md, … if it already exists)
+```
+
+The date is the day the run starts. If the folder already exists (an earlier run with the same
+slug that day, possibly committed), use `-2`, `-3`, and so on: never write into another run's
+folder. The user may commit the folder at any time, mid-run included.
+
+Keep everything else outside the working tree, in
 `$(git rev-parse --absolute-git-dir)/design-debate/<slug>/`. It survives new sessions, never
 shows in `git status`, and is per worktree.
 
 ```
-run.md            settings table, approval line, dispatch log, retry line, status
-framing.md
+run.md            settings table, run folder, approval line, dispatch log, retry line, status
 drafts/<slot>.md  slots are A..E
 round-<k>/<slot>.md  one folder per round, from round-1
 completeness.md   written by the orchestrator, no subagent
@@ -119,14 +131,16 @@ judge.md
 
 `run.md` lines, appended as they happen:
 
+- `run-dir: <repo-relative path>`, the run folder, written at preflight
 - `approval: <hash>|N=<n>|R=<r or auto>|<slot:lens:model:effort,...>|judge=<model:effort>`, where `<hash>` is
-  `git hash-object framing.md`
+  `git hash-object <run-dir>/framing.md`
 - `dispatch: <stage>/<slot> <ISO time>`, written before every subagent spawn
 - `labels: <stage>/<reader> P=<slot>,Q=<slot>,...`, written before each round or judge spawn (see
   Peer labels)
 - `retry-used: <stage>/<slot>`
 - `converged: round-<k>` or `cycled: round-<k>`, only with `rounds=auto` (see Auto rounds)
-- `proposal: <repo-relative path>`, written as soon as the proposal file exists
+- `proposal: <repo-relative path>`, written as soon as the proposal file exists. A `proposal:` line
+  above the latest `approval:` line belongs to a superseded run and does not count.
 - `status: <framing|approved|design|round-<k>|completeness|judge|written|validated|written-unvalidated|stopped:<reason>>`
 
 ## Peer labels
@@ -149,15 +163,17 @@ A stage file is valid only if it has every heading prompts.md requires for that 
 
 0. **Preflight.**
    1. Resolve the repo root.
-   2. Record the baseline signature (see Mutation check in Safety) in `run.md`.
-   3. Detect the harness and read the subagent tool's live model list.
-   4. Resolve the settings from the invocation and the defaults files (see Defaults files).
-   5. If a state folder exists for the slug, do not start a new run over it. Say so in plain text,
+   2. Detect the harness and read the subagent tool's live model list.
+   3. Resolve the settings from the invocation and the defaults files (see Defaults files).
+   4. If a state folder exists for the slug, do not start a new run over it. Say so in plain text,
       with its status and the `resume <slug>` command, and end your turn. Never offer it through an
       ask-user or question tool.
-   6. Note whether `docs/working/proposals/` exists.
-1. **Frame.** You write `framing.md` yourself, with no subagent, following the Framer checklist in
-   prompts.md. Write `run.md` with the resolved settings and `status: framing`.
+   5. Pick the run folder (see Run state), note whether `docs/working/design-debates/` exists, and
+      write `run-dir:` to `run.md`.
+   6. Record the baseline signature (see Mutation check in Safety) in `run.md`.
+1. **Frame.** You write `<run-dir>/framing.md` yourself, creating the folders, with no subagent,
+   following the Framer checklist in prompts.md. Write `run.md` with the resolved settings and
+   `status: framing`.
 2. **Checkpoint.** See below. This is the only human stop.
 3. **Design.** Spawn N designers in parallel with the Designer prompt, each with its slot's lens,
    model and effort. Log each dispatch first. Save each valid reply to `drafts/<slot>.md`. Run the
@@ -176,19 +192,19 @@ A stage file is valid only if it has every heading prompts.md requires for that 
    critiques and dispositions, plus the gaps still open in `completeness.md`, relabelled into the
    judge's mapping. Save to `judge.md`. Run the mutation check.
 7. **Write.**
-   1. Fill proposal-template.md into `docs/working/proposals/YYYY-MM-DD-<slug>.md`, creating the
-      folder if needed. Compute the scorecard totals yourself from the judge's per-criterion scores,
-      for every design, ineligible ones included and marked.
-      Never overwrite: if the path exists, use `-2`, `-3`, and so on. Append `proposal: <path>`
-      and `status: written` to `run.md` straight away. If `run.md` already has a `proposal:` line,
-      do not write a new file: re-validate and repair that file in place.
+   1. Fill proposal-template.md into `<run-dir>/proposal.md`. Compute the scorecard totals yourself
+      from the judge's per-criterion scores, for every design, ineligible ones included and marked.
+      Never overwrite: if the file exists, use `proposal-2.md`, `proposal-3.md`, and so on. Append
+      `proposal: <path>` and `status: written` to `run.md` straight away. If `run.md` already has a
+      `proposal:` line that counts (see Run state), do not write a new file: re-validate and repair
+      that file in place.
    2. Validate:
       - Run `python3 .github/scripts/docs/check_integrity.py` if it exists.
       - Check that every relative link and every `path:line` citation in the proposal resolves.
         The integrity checker skips `docs/working/`.
       - Check that there are at least 2 mermaid blocks.
    3. Set `status: validated`, or `status: written-unvalidated` with the failures listed.
-   4. Run the final mutation check, which allows the one proposal file.
+   4. Run the final mutation check, which allows the one proposal file in the run folder.
 8. **Report.** See Report.
 
 ## Completeness
@@ -227,9 +243,9 @@ Present the checkpoint, then **end your turn**.
 
 The checkpoint message contains:
 
-1. `framing.md` and the state folder as clickable links (see Linking outputs), with a 3–5 line
-   summary of the framing.
-2. The slug and the proposal path. Say if `docs/working/proposals/` will be created.
+1. `framing.md` (in the run folder) and the state folder as clickable links (see Linking outputs),
+   with a 3–5 line summary of the framing.
+2. The slug and the run folder, and say that it was created for this run. The user may commit it.
 3. A table of slots, with lens, requested model, resolved model, effort and fallback note for each,
    plus the judge.
 4. N, R, the planned calls (`N + N×R + 1`, or for `rounds=auto` the calls through round 1 and
@@ -237,7 +253,7 @@ The checkpoint message contains:
 5. Every clamp, fallback and "not applied" setting, which defaults files were read, which settings
    came from them, and every ignored file or key.
 6. The reply forms: `approve`, `edit <setting>=<value>` (for example `edit rounds=1`), `edit
-   framing` (the user edits the file, then replies `approve`), and `cancel`.
+   framing` (the user edits `<run-dir>/framing.md` in place, then replies `approve`), and `cancel`.
 
 On approve, append the approval line to `run.md` and set `status: approved`. On any edit, re-show
 the checkpoint. On `cancel`, append `status: stopped:cancelled` and end.
@@ -245,7 +261,7 @@ the checkpoint. On `cancel`, append `status: stopped:cancelled` and end.
 ## Linking outputs
 
 Every file you hand to the user is a link they can click, never a bare path to go and find:
-`framing.md` at the checkpoint, the proposal in the report, and the state folder.
+`framing.md` at the checkpoint, the proposal and `framing.md` in the report, and the state folder.
 
 - If the client has a tool that publishes or attaches files to the chat, use it.
 - Otherwise write a markdown link with the absolute path: `[proposal](file:///abs/path.md)`.
@@ -256,18 +272,23 @@ Every file you hand to the user is a link they can click, never a bare path to g
 
 `design-debate resume <slug>`:
 
-1. Recompute the approval line from the current `framing.md` and settings, defaults files included. If it differs from the
+1. Read the run folder from the `run-dir:` line. If `<run-dir>/framing.md` is missing, stop: say
+   where it was, that the user can restore it (for example from a commit) or `cancel`, and end
+   your turn.
+2. Recompute the approval line from the current `framing.md` and settings, defaults files included. If it differs from the
    recorded one, or there is none, go back to the checkpoint and say why.
-2. If the user re-approves a *changed* approval line, the earlier designs answered a different
+3. If the user re-approves a *changed* approval line, the earlier designs answered a different
    framing or panel. Move `drafts/`, every `round-<k>/`, `completeness.md`, `repair/` and
    `judge.md` into `superseded-<n>/` in
-   the state folder, keep the retry line, and restart from Design.
-3. If `run.md` has a `proposal:` line, go straight to Write step 2: validate and repair that file.
-4. Otherwise skip every valid stage file.
-5. List each `dispatch:` with no valid file as "uncertain, may already be billed", then run it
+   the state folder, keep the retry line, and restart from Design. The framing stays in the run
+   folder; an earlier proposal there stays too, and the new one gets the next free name.
+4. If `run.md` has a `proposal:` line that counts (see Run state), go straight to Write step 2:
+   validate and repair that file.
+5. Otherwise skip every valid stage file.
+6. List each `dispatch:` with no valid file as "uncertain, may already be billed", then run it
    again. These re-runs do not use the retry.
-6. Keep the retry: a `retry-used:` line from an earlier session still counts.
-7. Take a fresh baseline signature, and continue from the first incomplete stage.
+7. Keep the retry: a `retry-used:` line from an earlier session still counts.
+8. Take a fresh baseline signature, and continue from the first incomplete stage.
 
 ## Safety
 
@@ -275,18 +296,25 @@ Every file you hand to the user is a link they can click, never a bare path to g
   types where the harness offers them *and* they accept a model override; otherwise use a general
   agent and rely on the block plus the mutation check.
 - **Mutation check:** the signature is these three values, recorded at preflight and compared after
-  every subagent stage:
-  - `git status --porcelain --untracked-files=all`
-  - `git diff HEAD | git hash-object --stdin`
-  - `git ls-files -o --exclude-standard -z | xargs -0 git hash-object | git hash-object --stdin`
+  every subagent stage. Each command leaves out the run folder with the pathspec
+  `-- . ':(exclude)<run-dir>'`, so the user can edit or commit the framing without tripping it:
+  - `git status --porcelain --untracked-files=all -- . ':(exclude)<run-dir>'`
+  - `git diff HEAD -- . ':(exclude)<run-dir>' | git hash-object --stdin`
+  - `git ls-files -o --exclude-standard -z -- . ':(exclude)<run-dir>' | xargs -0 git hash-object | git hash-object --stdin`
     (contents of untracked files, which the first two miss)
 
-  The final check after Write allows exactly the one `proposal:` file.
-  - On any difference: set `status: stopped:mutation`, list the changed paths, and stop.
+  The run folder is checked on its own, from the approval onwards:
+  - `git hash-object <run-dir>/framing.md` equals the approved hash. If not, set
+    `status: stopped:framing-changed`, say the framing changed after approval and that
+    `resume <slug>` re-shows the checkpoint, and stop.
+  - The folder holds only `framing.md`, plus after Write the one `proposal:` file and any proposal
+    from a superseded run. Anything else counts as a mutation.
+
+  - On any other difference: set `status: stopped:mutation`, list the changed paths, and stop.
   - Never revert, reset, checkout or stash anything; the change may be the user's own work.
   - `resume` takes a new baseline.
-- The only repository write is the proposal. Never commit, push, open a PR, edit
-  documentation conventions or create tickets.
+- The only repository writes are the run folder's `framing.md` and proposal. Never commit, push,
+  open a PR, edit documentation conventions or create tickets.
 
 ## Failure policy
 
@@ -297,6 +325,8 @@ Every file you hand to the user is a link they can click, never a bare path to g
 | Retry already used, including in an earlier session | Stop, keep state, report incomplete with the resume command. Never continue with fewer designers |
 | Session dies mid-stage | `resume` lists uncertain calls and re-runs them |
 | Framing or settings changed after approval | Back to the checkpoint; on re-approval, earlier designs move to `superseded-<n>/` and Design restarts |
+| Framing edited mid-run | `stopped:framing-changed`; `resume` re-shows the checkpoint |
+| Framing missing on resume | Stop; the user restores it or cancels |
 | Mutation check fails | Stop, list paths, never revert |
 | Final design misses a framing item | One repair call for that slot (see Completeness); if it fails, the judge scores the gap. Never uses the retry |
 | Judge returns UNRESOLVED | Write the proposal with the gates table and the reasons; status `validated` if checks pass |
@@ -306,15 +336,15 @@ Every file you hand to the user is a link they can click, never a bare path to g
 
 End with:
 
-1. The proposal and the state folder as clickable links, and the proposal's status (`validated` or
-   `written-unvalidated`).
+1. The proposal, `framing.md` and the state folder as clickable links, and the proposal's status
+   (`validated` or `written-unvalidated`). Say the run folder is ready to commit.
 2. The winner and grafts, in 2–3 lines.
 3. Planned vs. actual calls (repairs counted separately, with which slots were repaired), the
    rounds run (with `rounds=auto`: and whether they converged or cycled),
    requested vs. actual model per slot, and every setting not applied.
 4. Uncertain re-runs, if any, and the resume command if the run is incomplete.
 5. If the repo documents where working docs go (for example in `AGENTS.md`) and does not mention
-   `docs/working/proposals/`, suggest adding it in a separate change. Do not edit it.
+   `docs/working/design-debates/`, suggest adding it in a separate change. Do not edit it.
 6. Next step: turn section 8 into tickets, with the user's ticket-writing skill if one is
    installed. Default to one story. Cite the proposal by repo path; use a blob URL only if a pushed
    branch already contains the file.
