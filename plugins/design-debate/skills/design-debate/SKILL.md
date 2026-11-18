@@ -170,10 +170,10 @@ A stage file is valid only if it has every heading prompts.md requires for that 
       ask-user or question tool.
    5. Pick the run folder (see Run state), note whether `docs/working/design-debates/` exists, and
       write `run-dir:` to `run.md`.
-   6. Record the baseline signature (see Mutation check in Safety) in `run.md`.
 1. **Frame.** You write `<run-dir>/framing.md` yourself, creating the folders, with no subagent,
-   following the Framer checklist in prompts.md. Write `run.md` with the resolved settings and
-   `status: framing`.
+   following the Framer checklist in prompts.md. End every line without trailing whitespace and the
+   file with one newline, so a formatting hook on commit does not change it. Append the resolved
+   settings and `status: framing` to `run.md`.
 2. **Checkpoint.** See below. This is the only human stop.
 3. **Design.** Spawn N designers in parallel with the Designer prompt, each with its slot's lens,
    model and effort. Log each dispatch first. Save each valid reply to `drafts/<slot>.md`. Run the
@@ -255,8 +255,10 @@ The checkpoint message contains:
 6. The reply forms: `approve`, `edit <setting>=<value>` (for example `edit rounds=1`), `edit
    framing` (the user edits `<run-dir>/framing.md` in place, then replies `approve`), and `cancel`.
 
-On approve, append the approval line to `run.md` and set `status: approved`. On any edit, re-show
-the checkpoint. On `cancel`, append `status: stopped:cancelled` and end.
+On approve, append the approval line to `run.md`, record the baseline signature (see Mutation check
+in Safety), and set `status: approved`. The baseline comes after approval, so whatever the user did in
+the repo while reviewing is not blamed on a subagent. On any edit, re-show the checkpoint. On
+`cancel`, append `status: stopped:cancelled` and end.
 
 ## Linking outputs
 
@@ -272,9 +274,11 @@ Every file you hand to the user is a link they can click, never a bare path to g
 
 `design-debate resume <slug>`:
 
-1. Read the run folder from the `run-dir:` line. If `<run-dir>/framing.md` is missing, stop: say
-   where it was, that the user can restore it (for example from a commit) or `cancel`, and end
-   your turn.
+1. Read the run folder from the `run-dir:` line. If `<run-dir>/framing.md` is missing:
+   - with no `approval:` line and `status:` absent or `framing`, the run died before or during
+     Frame: run Frame again into the same run folder, then go to the checkpoint;
+   - otherwise stop: say where it was, that the user can restore it (for example from a commit) or
+     `cancel`, and end your turn.
 2. Recompute the approval line from the current `framing.md` and settings, defaults files included. If it differs from the
    recorded one, or there is none, go back to the checkpoint and say why.
 3. If the user re-approves a *changed* approval line, the earlier designs answered a different
@@ -288,16 +292,20 @@ Every file you hand to the user is a link they can click, never a bare path to g
 6. List each `dispatch:` with no valid file as "uncertain, may already be billed", then run it
    again. These re-runs do not use the retry.
 7. Keep the retry: a `retry-used:` line from an earlier session still counts.
-8. Take a fresh baseline signature, and continue from the first incomplete stage.
+8. Check the run folder's contents (see Mutation check) before spawning anything. If a stray file is
+   still there, stop with `stopped:mutation` again and name it, at no cost.
+9. Take a fresh baseline signature, and continue from the first incomplete stage.
 
 ## Safety
 
 - Every subagent prompt carries the read-only safety block from prompts.md. Use read-only agent
   types where the harness offers them *and* they accept a model override; otherwise use a general
   agent and rely on the block plus the mutation check.
-- **Mutation check:** the signature is these three values, recorded at preflight and compared after
-  every subagent stage. Each command leaves out the run folder with the pathspec
-  `-- . ':(exclude)<run-dir>'`, so the user can edit or commit the framing without tripping it:
+- **Mutation check:** the signature is these three values, recorded on approve and compared after
+  every subagent stage. Run every git command in this check from the repo root (`git -C
+  <repo-root> …`), since `<run-dir>` is repo-relative. Each command leaves out the run folder with
+  the pathspec `-- . ':(exclude)<run-dir>'`, so the user can edit or commit the framing without
+  tripping it:
   - `git status --porcelain --untracked-files=all -- . ':(exclude)<run-dir>'`
   - `git diff HEAD -- . ':(exclude)<run-dir>' | git hash-object --stdin`
   - `git ls-files -o --exclude-standard -z -- . ':(exclude)<run-dir>' | xargs -0 git hash-object | git hash-object --stdin`
@@ -305,10 +313,12 @@ Every file you hand to the user is a link they can click, never a bare path to g
 
   The run folder is checked on its own, from the approval onwards:
   - `git hash-object <run-dir>/framing.md` equals the approved hash. If not, set
-    `status: stopped:framing-changed`, say the framing changed after approval and that
-    `resume <slug>` re-shows the checkpoint, and stop.
-  - The folder holds only `framing.md`, plus after Write the one `proposal:` file and any proposal
-    from a superseded run. Anything else counts as a mutation.
+    `status: stopped:framing-changed`, say the framing changed after approval (by the user, a
+    tool, or a subagent) and that `resume <slug>` re-shows the checkpoint, and stop.
+  - `git ls-files -co --exclude-standard -- <run-dir>`, ignoring names that start with a dot, lists
+    only these: `framing.md`; any file named by a `proposal:` line above the latest `approval:`
+    line, at any stage; and after Write, the current `proposal:` file. Anything else is a
+    mutation: name the file and tell the user to move or delete it before `resume`.
 
   - On any other difference: set `status: stopped:mutation`, list the changed paths, and stop.
   - Never revert, reset, checkout or stash anything; the change may be the user's own work.
