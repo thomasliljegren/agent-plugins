@@ -9,7 +9,7 @@ models the harness's subagent tool lists right now.
 Designers are slots `A`..`E`. Each slot has a family preference, picked as the strongest available
 model of that family.
 
-| Slot | Copilot (`task` tool) | Claude Code (`Task` tool) | Other harnesses |
+| Slot | Copilot (`task` tool) | Claude Code (`Agent` tool) | Other harnesses |
 |---|---|---|---|
 | A | Claude | opus | session default |
 | B | GPT | sonnet | session default |
@@ -40,7 +40,7 @@ An explicit `models=A:<id>,B:<family>` at invoke time or at the checkpoint overr
 | Harness | How effort is applied |
 |---|---|
 | Copilot | `reasoning_effort` on each `task` call (`low`, `medium`, `high`, `xhigh`) |
-| Claude Code | Not settable per subagent. Show "effort: not applied" at the checkpoint |
+| Claude Code | `effort` on each `Agent` (formerly `Task`) call, where the tool has that parameter; older versions without it show "effort: not applied" at the checkpoint |
 | Other | Apply it if the subagent tool has an effort parameter; otherwise "not applied" |
 
 Default effort is `high` for designers and the judge. `effort=` sets all slots, `effort=A:low,B:high`

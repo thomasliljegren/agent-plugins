@@ -20,8 +20,8 @@ References, all bundled:
 ## Requires a subagent tool
 
 The debate depends on designers working independently, in separate contexts. Check for a tool
-that spawns a subagent with its own prompt (`task` in Copilot, `Task` in Claude Code, or the
-equivalent in other clients). If there is none, stop and say this skill cannot run in this client.
+that spawns a subagent with its own prompt (`task` in Copilot, `Agent`, formerly `Task`, in Claude
+Code, or the equivalent in other clients). If there is none, stop and say this skill cannot run in this client.
 Never simulate designers inside your own context: they would not be independent.
 
 ## Invocation and defaults
@@ -373,9 +373,10 @@ End with:
   Prefer `general-purpose` agents: read-only types may not honour a model override. Launch the
   designers of one stage together, in parallel. The live model list is in the `task` tool's `model`
   parameter.
-- **Claude Code:** spawn with `Task`, several in one message for parallelism, with
-  `model: opus|sonnet|haiku|fable`. Only Claude models are available, so the judge always shares a family
-  with a designer: declare it. Effort is not applied.
+- **Claude Code:** spawn with `Agent` (called `Task` in older versions), several in one message for
+  parallelism, with `model: opus|sonnet|haiku|fable` and `effort` per call. Only Claude models are
+  available, so the judge always shares a family with a designer: declare it. If the tool has no
+  `effort` parameter, effort is not applied.
 - **Other clients** (Codex, OpenCode, VS Code): untested. Run only if a subagent tool exists (see
   Requires a subagent tool). Use the models.md "Other harnesses" column, and say in the report that
   the client is untested so the user can share the result.
